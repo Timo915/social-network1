@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Создать пост</title>
+</head>
+<body>
+    <h1>Создать новый пост</h1>
+    <nav>
+        <a href="/logout">Выйти</a>
+        <a href="/login">Вход</a>
+        <a href="/register">Регистрация</a>
+        <a href="/create-post">Создать пост</a>
+        <a href="/history">История сообщений</a>
+        <a href="/home">Лента новостей</a>
+        <a href="/profile">Профиль</a>
+    </nav>
+
+    <form action="/posts" method="POST" enctype="multipart/form-data">
+        <label for="content">Текст поста:</label>
+        <textarea name="content" placeholder="Введите текст поста..." required></textarea>
+        <br>
+        <label for="video">Загрузить видео:</label>
+        <input type="file" name="video" accept="video/*">
+        <button type="submit">Опубликовать</button>
+    </form>
+
+    <% if (typeof error !== 'undefined') { %>
+        <p style="color:red;"><%= error %></p>
+    <% } %>
+</body>
+</html>

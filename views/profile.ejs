@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Профиль пользователя</title>
+</head>
+<body>
+    <h1>Профиль - <%= user.username %></h1>
+    <nav>
+        <a href="/logout">Выйти</a>
+        <a href="/login">Вход</a>
+        <a href="/register">Регистрация</a>
+        <a href="/create-post">Создать пост</a>
+        <a href="/history">История сообщений</a>
+        <a href="/home">Лента новостей</a>
+    </nav>
+
+    <h2>Информация о пользователе:</h2>
+    <p>Имя: <%= user.name %></p>
+    <p>Email: <%= user.email %></p>
+    <img src="<%= user.profilePicture %>" alt="Фото профиля" width="120" height="120">
+    
+    <!-- Можно добавить дополнительные элементы генерируемые для профиля -->
+    <h2>Посты пользователя:</h2>
+     <ul>
+    <% if (posts.length > 0) { %>
+        <% posts.forEach(post => { %>
+            <li>
+                <strong><%= post.content %></strong>
+            </li>
+        <% }); %>
+    <% } else { %>
+        <li>Постов пока нет.</li>
+    <% } %>
+</ul>
+</body>
+</html>

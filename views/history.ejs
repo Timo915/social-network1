@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>История диалогов</title>
+    <link rel="stylesheet" href="/styles.css"> <!-- Подключите ваши стили -->
+</head>
+<body>
+    <header>
+        <h1>История диалогов</h1>
+        <nav>
+            <a href="/logout">Выйти</a>
+            <a href="/login">Вход</a>
+            <a href="/register">Регистрация</a>
+            <a href="/create-post">Создать пост</a>
+            <a href="/home">Лента новостей</a>
+        </nav>
+    </header>
+
+    <section>
+        <h2>Ваши диалоги:</h2>
+        <ul>
+            <% if (dialogues.length > 0) { %>
+                <% dialogues.forEach(dialogue => { %>
+                    <li>
+                        <a href="/messages/<%= dialogue.userId %>">
+                            <img src="<%= dialogue.userInfo.profilePicture %>" alt="<%= dialogue.userInfo.name %>" width="32" height="32"> <!-- Изображение профиля -->
+                            <strong><%= dialogue.userInfo.name %></strong> <!-- Имя пользователя, с которым идет диалог -->
+                            <span>(Вы: <%= username %>)</span> <!-- Отображение логина текущего пользователя -->
+                        </a>
+                        <p>
+                            <span><%= dialogue.lastMessage %></span> <!-- Последнее сообщение -->
+                            <br>
+                            <small>Создано: <%= new Date(dialogue.lastMessageDate).toLocaleString() %></small>
+                        </p>
+                    </li>
+                <% }) %>
+            <% } else { %>
+                <li>Нет активных диалогов.</li>
+            <% } %>
+        </ul>
+    </section>
+
+    <footer>
+        <p>© 2023 Ваша компания. Все права защищены.</p>
+    </footer>
+
+</body>
+</html>

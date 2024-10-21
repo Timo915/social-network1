@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Сообщения</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f4f4f4;
+            margin: 0;
+            padding: 20px;
+        }
+        h1 {
+            color: #333;
+        }
+        nav {
+            margin-bottom: 20px;
+        }
+        nav a {
+            margin-right: 15px;
+        }
+        .message-container {
+            display: flex;
+            flex-direction: column;
+            max-width: 600px;
+            margin: auto;
+        }
+        .message {
+            background-color: #fff;
+            border: 1px solid #ddd;
+            padding: 10px;
+            border-radius: 5px;
+            margin-bottom: 10px;
+            position: relative;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+        }
+        .message.sender {
+            align-self: flex-end;
+            background-color: #e6f3ff;
+            border-radius: 5px 5px 5px 0;
+        }
+        .message.receiver {
+            align-self: flex-start;
+            background-color: #f1f1f1;
+            border-radius: 0 5px 5px 5px;
+        }
+        .timestamp {
+            font-size: 0.8em;
+            color: #777;
+            position: absolute;
+            bottom: 5px;
+            right: 10px;
+        }
+        .form-container {
+            margin-top: 20px;
+            display: flex;
+            justify-content: space-between;
+        }
+        input[type="text"] {
+            flex: 1;
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            margin-right: 10px;
+        }
+        button {
+            padding: 10px 15px;
+            border: none;
+            border-radius: 5px;
+            background-color: #007BFF;
+            color: white;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+    </style>
+</head>
+<body>
+    <h1>Сообщения</h1>
+    <nav>
+        <a href="/home">На главную</a>
+        <a href="/logout">Выйти</a>
+    </nav>
+
+    <div class="message-container">
+        <% messages.forEach(message => { %>
+            <div class="message <%= message.sender.id === user.id ? 'sender' : 'receiver' %>">
+                <strong><%= message.sender.username %>: </strong>
+                <%= message.content %>
+                <div class="timestamp"><em>(<%= new Date(message.createdAt).toLocaleString() %>)</em></div>
+            </div>
+        <% }) %>
+    </div>
+
+    <div class="form-container">
+        <form action="/send-message/<%= recipientId %>" method="POST">
+            <input type="text" name="content" placeholder="Введите сообщение" required />
+            <button type="submit">Отправить сообщение</button>
+        </form>
+    </div>
+</body>
+</html>

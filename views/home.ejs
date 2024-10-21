@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Лента новостей</title>
+    <link rel="stylesheet" href="/styles.css"> <!-- Подключите ваши стили, если есть -->
+</head>
+<body>
+    <h1>Лента новостей</h1>
+    <nav>
+        <a href="/logout">Выйти</a>
+        <a href="/login">Вход</a>
+        <a href="/register">Регистрация</a>
+        <a href="/create-post">Создать пост</a>
+        <a href="/history">История сообщений <span id="notification-count" class="notification-badge">0</span></a>
+        <a href="/profile">Профиль</a>
+    </nav>
+
+    <h2>Посты от ваших подписок:</h2>
+    <ul>
+        <% if (typeof posts !== 'undefined' && posts.length > 0) { %>
+            <% posts.forEach(post => { %>
+                <li>
+                    <strong><%= post.userId.username %></strong>:
+                    <p><%= post.content %></p>
+                    <% if (post.videoUrl) { %>
+                        <video width="320" height="240" controls>
+                            <source src="<%= post.videoUrl %>" type="video/mp4">
+                            Ваш браузер не поддерживает видео.
+                        </video>
+                    <% } %>
+                    <p>Создан: <%= post.createdAt.toLocaleString() %></p>
+                </li>
+            <% }) %>
+        <% } else { %>
+            <li>Нет постов от ваших подписок.</li>
+        <% } %>
+    </ul>
+
+    <h2>Поиск пользователей:</h2>
+    <form action="/home" method="GET">
+        <input type="text" name="search" value="<%= search %>" placeholder="Введите имя пользователя" />
+        <button type="submit">Поиск</button>
+    </form>
+
+    <h2>Пользователи:</h2>
+    <ul>
+        <% users.forEach(user => { %>
+            <li>
+                <%= user.username %>
+                <form action="/send-friend-request/<%= user._id %>" method="POST" style="display:inline;">
+                    <button type="submit">Отправить запрос в друзья</button>
+                </form>
+                <form action="/subscribe/<%= user._id %>" method="POST" style="display:inline;">
+                    <button type="submit">Подписаться</button>
+                </form>
+                <a href="/messages/<%= user._id %>">Сообщения</a>
+            </li>
+        <% }) %>
+    </ul>
+
+    <script>
+        function updateNotificationCount() {
+            fetch('/api/unread-messages-count') // Предполагается, что этот эндпоинт возвращает количество непрочитанных сообщений
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error('Network response was not ok');
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    document.getElementById('notification-count').textContent = data.count > 0 ? data.count : '';
+                })
+                .catch(err => console.error('Ошибка загрузки количества уведомлений:', err));
+        }
+    
+        // Обновление уведомлений каждые 10 секунд
+        setInterval(updateNotificationCount, 10000);
+        // Первичное обновление
+        updateNotificationCount();
+    </script>
+</body>
+</html>
