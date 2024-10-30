@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Список Друзей и Запросов</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+        }
+        h1 {
+            color: #333;
+        }
+        ul {
+            list-style-type: none;
+            padding: 0;
+        }
+        li {
+            margin: 5px 0;
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        button {
+            background-color: #ff4c4c; /* Красный цвет для кнопки отмены */
+            color: white;
+            border: none;
+            border-radius: 5px;
+            padding: 5px 10px;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #ff0000; /* Более темный красный при наведении */
+        }
+    </style>
+</head>
+<body>
+    <h1>Список Друзей</h1>
+    <ul id="friendsList"></ul>
+
+    <h1>Отправленные Запросы на Дружбу</h1>
+    <ul id="sentRequestsList"></ul>
+
+    <script>
+        // Функция для загрузки друзей
+        async function loadFriends() {
+            try {
+                const response = await fetch('/api/get-friends');
+                const friends = await response.json();
+
+                const friendsList = document.getElementById('friendsList');
+                friends.forEach(friend => {
+                    const listItem = document.createElement('li');
+                    listItem.innerHTML = `
+                        <span>${friend.username}</span>
+                        <button onclick="removeFriend('${friend._id}')">Удалить из друзей</button>
+                    `;
+                    friendsList.appendChild(listItem);
+                });
+            } catch (error) {
+                console.error('Ошибка при загрузке друзей:', error);
+            }
+        }
+
+        // Функция для загрузки отправленных запросов
+        async function loadSentRequests() {
+            try {
+                const response = await fetch('/api/get-sent-requests');
+                const requests = await response.json();
+
+                const sentRequestsList = document.getElementById('sentRequestsList');
+                requests.forEach(request => {
+                    const listItem = document.createElement('li');
+                    listItem.innerHTML = `
+                        <span>${request.receiver.username} (запрос отправлен)</span>
+                        <button onclick="cancelFriendRequest('${request._id}')">Отменить запрос</button>
+                    `;
+                    sentRequestsList.appendChild(listItem);
+                });
+            } catch (error) {
+                console.error('Ошибка при загрузке отправленных запросов:', error);
+            }
+        }
+
+        // Функция для удаления из друзей
+        async function removeFriend(friendId) {
+            // Вызов API для удаления друга
+            const response = await fetch(`/api/remove-friend/${friendId}`, {
+                method: 'DELETE',
+            });
+
+            if (response.ok) {
+                // Удаляем элемент из списка
+                alert('Друг удален');
+                loadFriends(); // Перезагружаем список друзей
+            } else {
+                alert('Ошибка при удалении друга');
+            }
+        }
+
+        // Функция для отмены отправленного запроса
+        async function cancelFriendRequest(requestId) {
+            const response = await fetch(`/api/cancel-request/${requestId}`, {
+                method: 'DELETE',
+            });
+
+            if (response.ok) {
+                alert('Запрос на дружбу отменен');
+                loadSentRequests(); // Перезагружаем список отправленных запросов
+            } else {
+                alert('Ошибка при отмене запроса');
+            }
+        }
+
+        // Загружаем данные при загрузке страницы
+        window.onload = () => {
+            loadFriends();
+            loadSentRequests();
+        };
+    </script>
+</body>
+</html>

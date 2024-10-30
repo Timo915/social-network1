@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Просмотр видео</title>
+    <link rel="stylesheet" href="/styles.css"> <!-- Подключите ваши стили, если есть -->
+</head>
+<body>
+    <h1>Лента видео</h1>
+    <nav>
+        <a href="/logout">Выйти</a>
+        <a href="/login">Вход</a>
+        <a href="/register">Регистрация</a>
+        <a href="/create-post">Создать пост</a>
+        <a href="/history">История сообщений <span id="notification-count" class="notification-badge">0</span></a>
+        <a href="/profile">Профиль</a>
+        <a href="/music">Музыка</a>
+        <a href="/calls">Звонки</a>
+    </nav>
+
+    <h2>Недавние видео:</h2>
+    <ul>
+        <% if (typeof videos !== 'undefined' && videos.length > 0) { %>
+            <% videos.forEach(video => { %>
+                <li>
+                    <strong><%= video.userId.username %></strong>:
+                    <video width="320" height="240" controls>
+                        <source src="<%= video.videoUrl %>" type="video/mp4">
+                        Ваш браузер не поддерживает видео.
+                    </video>
+                    <p>Создан: <%= video.createdAt.toLocaleString() %></p>
+                </li>
+            <% }) %>
+        <% } else { %>
+            <li>Нет доступных видео.</li>
+        <% } %>
+    </ul>
+
+    <script>
+        // Дополнительный JavaScript для видеоленты
+    </script>
+</body>
+</html>

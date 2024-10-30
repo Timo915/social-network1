@@ -3,78 +3,301 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Лента новостей</title>
-    <link rel="stylesheet" href="/styles.css"> <!-- Подключите ваши стили, если есть -->
+    <title>Главная страница</title>
+    <link rel="stylesheet" href="/styles.css">
+    <style>
+        /* Основные стили */
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #e9ecef;
+            color: #343a40;
+        }
+
+        h1 {
+            text-align: center;
+            margin: 20px 0;
+            color: #007bff;
+        }
+
+        nav {
+            background-color: #007bff;
+            padding: 15px;
+            display: flex;
+            justify-content: center;
+            flex-wrap: wrap;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+        }
+
+        nav a, .dropdown button {
+            color: white;
+            padding: 10px 15px;
+            text-decoration: none;
+            border: none;
+            background: none;
+            margin: 5px;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+            font-size: 16px;
+        }
+
+        nav a:hover, .dropdown button:hover {
+            background-color: #0056b3;
+        }
+
+        .notification-badge {
+            background-color: red;
+            color: white;
+            border-radius: 50%;
+            padding: 0 5px;
+            margin-left: 5px;
+        }
+
+        h2 {
+            color: #0056b3;
+            margin: 20px 0 10px;
+        }
+
+        ul {
+            list-style-type: none;
+            padding: 0;
+            margin: 0;
+        }
+
+        li {
+            background: white;
+            margin: 10px auto;
+            padding: 15px;
+            border-radius: 5px;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+            transition: box-shadow 0.3s;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        li:hover {
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.15);
+        }
+
+        form {
+            display: inline-block;
+            width: 100%;
+        }
+
+        form input[type="text"] {
+            padding: 10px;
+            margin-top: 5px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            width: calc(100% - 22px);
+            transition: border-color 0.3s;
+        }
+
+        form input[type="text"]:focus {
+            border-color: #007bff;
+            outline: none;
+        }
+
+        form button {
+            padding: 10px;
+            border: none;
+            background-color: #0056b3;
+            color: white;
+            border-radius: 5px;
+            cursor: pointer;
+            margin-top: 5px;
+            transition: background-color 0.3s;
+            font-size: 16px;
+        }
+
+        form button:hover {
+            background-color: #007bff;
+        }
+
+        .content {
+            max-width: 900px;
+            margin: 20px auto;
+            padding: 20px;
+            background: white;
+            border-radius: 5px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        }
+
+        footer {
+            text-align: center;
+            margin-top: 20px;
+            padding: 10px;
+            color: #777;
+            background-color: #f1f1f1;
+            border-top: 1px solid #ccc;
+        }
+
+        .user-actions {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .user-actions button {
+            margin-top: 10px;
+            padding: 5px 10px;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+
+        .user-actions button:hover {
+            background-color: #0056b3;
+        }
+
+        /* Дополнительные стили для кнопок и секций */
+        .button-group {
+            display: flex;
+            justify-content: flex-end;
+        }
+
+        .button-group button {
+            margin-left: 5px;
+        }
+
+        video {
+            max-width: 100%;
+            border-radius: 5px;
+        }
+
+        audio {
+            width: 100%;
+        }
+    </style>
 </head>
 <body>
     <h1>Лента новостей</h1>
     <nav>
         <a href="/logout">Выйти</a>
-        <a href="/login">Вход</a>
-        <a href="/register">Регистрация</a>
         <a href="/create-post">Создать пост</a>
-        <a href="/history">История сообщений <span id="notification-count" class="notification-badge">0</span></a>
-        <a href="/profile">Профиль</a>
+        <a href="/music">Музыка</a>
+        <a href="/calls">Звонки</a>
+        <a href="/history">История сообщений</a>
+        <a href="/friends">Список друзей</a>
+        <a href="/profile/<%= currentUser._id %>">Профиль</a>
+
+        <div class="dropdown">
+            <button>Уведомления
+                <span id="notification-count" class="notification-badge">0</span>
+            </button>
+            <div class="dropdown-content">
+                <a href="/notifications">Просмотреть все уведомления</a>
+            </div>
+        </div>
     </nav>
 
-    <h2>Посты от ваших подписок:</h2>
-    <ul>
-        <% if (typeof posts !== 'undefined' && posts.length > 0) { %>
-            <% posts.forEach(post => { %>
-                <li>
-                    <strong><%= post.userId.username %></strong>:
-                    <p><%= post.content %></p>
-                    <% if (post.videoUrl) { %>
-                        <video width="320" height="240" controls>
-                            <source src="<%= post.videoUrl %>" type="video/mp4">
+    <div class="content">
+        <h2>Посты от ваших друзей:</h2>
+        <ul>
+            <% if (posts && posts.length > 0) { %>
+                <% posts.forEach(post => { %>
+                    <li>
+                        <strong><%= post.userId.username %></strong>:
+                        <p><%= post.content %></p>
+                        <% if (post.videoUrl) { %>
+                            <video controls>
+                                <source src="<%= post.videoUrl %>" type="video/mp4">
+                                Ваш браузер не поддерживает видео.
+                            </video>
+                        <% } %>
+                        <p>Создан: <%= new Date(post.createdAt).toLocaleString() %></p>
+                    </li>
+                <% }) %>
+            <% } else { %>
+                <li>Нет постов от ваших друзей.</li>
+            <% } %>
+        </ul>
+
+        <h2>Поиск пользователей:</h2>
+        <form action="/home" method="GET">
+            <input type="text" name="search" value="<%= search || '' %>" placeholder="Введите имя пользователя" required autocomplete="off" />
+            <button type="submit">Поиск</button>
+        </form>
+
+        <h2>Пользователи:</h2>
+        <ul>
+            <% if (users && users.length > 0 && search) { %>
+                <% users.forEach(user => { %>
+                    <li class="user-actions">
+                        <span><%= user.username %></span>
+                        <div class="button-group">
+                            <button onclick="window.location.href='/messages/<%= user._id %>'">Написать сообщение</button>
+                            <button onclick="window.location.href='/audio-call/<%= user._id %>'">Голосовой звонок</button>
+                            <button onclick="window.location.href='/video-call/<%= user._id %>'">Видеозвонок</button>
+                        </div>
+                        <button class="open-profile-button" onclick="window.location.href='/profile/<%= user._id %>'">Открыть профиль</button>
+                    </li>
+                <% }) %>
+            <% } else if (search) { %>
+                <li>Нет пользователей для отображения.</li>
+            <% } %>
+        </ul>
+
+        <h2>Музыка:</h2>
+        <ul>
+            <% if (music && music.length > 0) { %>
+                <% music.forEach(track => { %>
+                    <li>
+                        <strong><%= track.title %></strong> - <%= track.artist %>
+                        <audio controls>
+                            <source src="<%= track.audioUrl %>" type="audio/mpeg">
+                            Ваш браузер не поддерживает аудиоплеер.
+                        </audio>
+                    </li>
+                <% }) %>
+            <% } else { %>
+                <li>Нет доступных музыкальных треков.</li>
+            <% } %>
+        </ul>
+
+        <h2>Недавние видео:</h2>
+        <ul>
+            <% if (videos && videos.length > 0) { %>
+                <% videos.forEach(video => { %>
+                    <li>
+                        <strong><%= video.userId.username %></strong>:
+                        <video controls>
+                            <source src="<%= video.videoUrl %>" type="video/mp4">
                             Ваш браузер не поддерживает видео.
                         </video>
-                    <% } %>
-                    <p>Создан: <%= post.createdAt.toLocaleString() %></p>
-                </li>
-            <% }) %>
-        <% } else { %>
-            <li>Нет постов от ваших подписок.</li>
-        <% } %>
-    </ul>
+                        <p>Создан: <%= new Date(video.createdAt).toLocaleString() %></p>
+                    </li>
+                <% }) %>
+            <% } else { %>
+                <li>Нет доступных видео.</li>
+            <% } %>
+        </ul>
+    </div>
 
-    <h2>Поиск пользователей:</h2>
-    <form action="/home" method="GET">
-        <input type="text" name="search" value="<%= search %>" placeholder="Введите имя пользователя" />
-        <button type="submit">Поиск</button>
-    </form>
-
-    <h2>Пользователи:</h2>
-    <ul>
-        <% users.forEach(user => { %>
-            <li>
-                <%= user.username %>
-                <form action="/send-friend-request/<%= user._id %>" method="POST" style="display:inline;">
-                    <button type="submit">Отправить запрос в друзья</button>
-                </form>
-                <form action="/subscribe/<%= user._id %>" method="POST" style="display:inline;">
-                    <button type="submit">Подписаться</button>
-                </form>
-                <a href="/messages/<%= user._id %>">Сообщения</a>
-            </li>
-        <% }) %>
-    </ul>
+    <footer>
+        <p>&copy; 2023 Ваш Ресурс</p>
+    </footer>
 
     <script>
-        function updateNotificationCount() {
-            fetch('/api/unread-messages-count') // Предполагается, что этот эндпоинт возвращает количество непрочитанных сообщений
-                .then(response => {
-                    if (!response.ok) {
-                        throw new Error('Network response was not ok');
-                    }
-                    return response.json();
-                })
-                .then(data => {
-                    document.getElementById('notification-count').textContent = data.count > 0 ? data.count : '';
-                })
-                .catch(err => console.error('Ошибка загрузки количества уведомлений:', err));
+        async function updateNotificationCount() {
+            try {
+                const response = await fetch('/api/unread-notifications');
+                if (!response.ok) {
+                    throw new Error('Сетевая ошибка');
+                }
+                const data = await response.json();
+                document.getElementById('notification-count').textContent =
+                    data.totalCount > 0 ? data.totalCount : '';
+            } catch (err) {
+                console.error('Ошибка загрузки количества уведомлений:', err);
+            }
         }
-    
+
         // Обновление уведомлений каждые 10 секунд
         setInterval(updateNotificationCount, 10000);
         // Первичное обновление

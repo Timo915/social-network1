@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Музыка</title>
+    <link rel="stylesheet" href="/path/to/your/styles.css"> <!-- Укажите свой путь к стилям -->
+    <script src="/path/to/your/scripts.js" defer></script> <!-- Укажите свой путь к скриптам -->
+</head>
+<body>
+    <h1>Музыкальная страница</h1>
+
+    <section id="music-list">
+        <h2>Музыка</h2>
+        <ul>
+            <% music.forEach(function(track) { %>
+                <li>
+                    <strong><%= track.title %></strong> - <%= track.artist %>
+                    <audio controls>
+                        <source src="<%= track.audioUrl %>" type="audio/mpeg">
+                        Ваш браузер не поддерживает аудиоплеер.
+                    </audio>
+                </li>
+            <% }); %>
+        </ul>
+    </section>
+
+    <section id="top-charts">
+        <h2>Топ-чарты</h2>
+        <ul>
+            <% topCharts.forEach(function(song) { %>
+                <li>
+                    <strong><%= song.title %></strong> - <%= song.artist %>
+                </li>
+            <% }); %>
+        </ul>
+    </section>
+
+    <section id="recommendations">
+        <h2>Рекомендации</h2>
+        <ul>
+            <% recommendations.forEach(function(song) { %>
+                <li>
+                    <strong><%= song.title %></strong> - <%= song.artist %>
+                </li>
+            <% }); %>
+        </ul>
+    </section>
+</body>
+</html>

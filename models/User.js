@@ -1,9 +1,14 @@
-// models/User.js
 const mongoose = require('mongoose');
 
 const userSchema = new mongoose.Schema({
-    username: { type: String, required: true, unique: true }, // Добавил уникальность
-    password: { type: String, required: true }, // Храните только хэш, не отправляйте его в ответах.
+    username: { type: String, required: true, unique: true },
+    password: { type: String, required: true },
+    subscriptions: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
+    subscribers: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
+    friends: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
+    friendRequests: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
+    language: { type: String, default: 'ru' }, // язык интерфейса
+    messageLanguage: { type: String, default: 'ru' }, // язык сообщений
 });
 
 // Исключение поля password из вывода
@@ -15,6 +20,7 @@ userSchema.methods.toJSON = function () {
     return userObject;
 };
 
-// Экспортируем модель
-const User = mongoose.model('User', userSchema);
+// Имя модели должно быть уникальным
+const User = mongoose.models.User || mongoose.model('User', userSchema);
+
 module.exports = User;

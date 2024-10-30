@@ -4,40 +4,175 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>История диалогов</title>
-    <link rel="stylesheet" href="/styles.css"> <!-- Подключите ваши стили -->
+    <link rel="stylesheet" href="/styles.css">
+    <style>
+        /* Общие стили */
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #e9ecef;
+            color: #343a40;
+        }
+
+        header {
+            background-color: #007bff;
+            padding: 15px;
+            text-align: center;
+        }
+
+        header h1 {
+            margin: 0;
+            color: white;
+        }
+
+        nav {
+            margin-top: 10px;
+            display: flex;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+
+        nav a {
+            color: white;
+            padding: 10px 15px;
+            margin: 0 5px;
+            text-decoration: none;
+            border-radius: 5px;
+            transition: background-color 0.3s;
+        }
+
+        nav a:hover {
+            background-color: #0056b3;
+        }
+
+        section {
+            max-width: 900px;
+            margin: 20px auto;
+            padding: 20px;
+            background-color: white;
+            border-radius: 5px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        }
+
+        h2 {
+            color: #0056b3;
+        }
+
+        .dialogue-card {
+            cursor: pointer;
+            margin-bottom: 10px;
+            padding: 15px;
+            background: white;
+            border-radius: 5px;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+            display: flex;
+            flex-direction: column;
+            transition: box-shadow 0.3s;
+        }
+
+        .dialogue-card:hover {
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.15);
+        }
+
+        .dialogue-card img {
+            border-radius: 50%;
+            margin-right: 10px;
+        }
+
+        .no-dialogs {
+            text-align: center;
+            padding: 15px;
+            margin: 20px 0;
+            background-color: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+            border-radius: 5px;
+        }
+
+        .group-icon {
+            margin-top: 5px;
+            font-weight: bold;
+            color: #007bff;
+        }
+
+        footer {
+            text-align: center;
+            margin-top: 20px;
+            padding: 10px;
+            color: #777;
+            background-color: #f1f1f1;
+            border-top: 1px solid #ccc;
+        }
+
+        .participants {
+            font-size: 0.85em;
+            color: #555;
+        }
+        
+        @media (max-width: 600px) {
+            nav a {
+                padding: 8px 12px;
+                font-size: 0.9em;
+            }
+        }
+    </style>
 </head>
 <body>
     <header>
         <h1>История диалогов</h1>
-        <nav>
-            <a href="/logout">Выйти</a>
-            <a href="/login">Вход</a>
-            <a href="/register">Регистрация</a>
-            <a href="/create-post">Создать пост</a>
-            <a href="/home">Лента новостей</a>
-        </nav>
     </header>
+
+    <nav>
+        <a href="/logout">Выйти</a>
+        <a href="/login">Вход</a>
+        <a href="/register">Регистрация</a>
+        <a href="/create-post">Создать пост</a>
+        <a href="/home">Лента новостей</a>
+        <a href="/create-group-chat">Создать групповой чат</a>
+        <a href="/create-channel">Создать канал</a>
+    </nav>
 
     <section>
         <h2>Ваши диалоги:</h2>
         <ul>
-            <% if (dialogues.length > 0) { %>
-                <% dialogues.forEach(dialogue => { %>
-                    <li>
-                        <a href="/messages/<%= dialogue.userId %>">
-                            <img src="<%= dialogue.userInfo.profilePicture %>" alt="<%= dialogue.userInfo.name %>" width="32" height="32"> <!-- Изображение профиля -->
-                            <strong><%= dialogue.userInfo.name %></strong> <!-- Имя пользователя, с которым идет диалог -->
-                            <span>(Вы: <%= username %>)</span> <!-- Отображение логина текущего пользователя -->
-                        </a>
-                        <p>
-                            <span><%= dialogue.lastMessage %></span> <!-- Последнее сообщение -->
-                            <br>
-                            <small>Создано: <%= new Date(dialogue.lastMessageDate).toLocaleString() %></small>
-                        </p>
-                    </li>
-                <% }) %>
+            <% if (user) { %>
+                <% if (dialogues && dialogues.length > 0) { %>
+                    <% dialogues.forEach(dialogue => { %>
+                        <li class="dialogue-card" onclick="location.href='<%= dialogue.isGroupChat ? `/group/${dialogue.userId}` : `/messages/${dialogue.userId}` %>';">
+                            <div style="display: flex; align-items: center;">
+                                <img src="<%= dialogue.userInfo.profilePicture %>" 
+                                     alt="<%= dialogue.userInfo.name %>" 
+                                     width="32" height="32" />
+                                <strong>
+                                    <a href="<%= dialogue.isGroupChat ? `/group/${dialogue.userId}` : `/profile/${dialogue.userId}` %>" 
+                                       style="color: #343a40; text-decoration: none;">
+                                       <%= dialogue.isGroupChat ? dialogue.userInfo.name : dialogue.userInfo.name %>
+                                    </a>
+                                </strong>
+                            </div>
+                            <p style="margin: 5px 0;">
+                                <span><%= dialogue.lastMessage || 'Нет сообщений' %></span>
+                                <br>
+                                <small>Создано: <%= new Date(dialogue.lastMessageDate).toLocaleString() %></small>
+                            </p>
+                            <div class="participants">
+                                <small>
+                                    <% if (dialogue.isGroupChat) { %>
+                                        Участников: <%= dialogue.participantsCount || '0' %>
+                                        <span class="group-icon">👥</span>
+                                    <% } else { %>
+                                        Отправитель: <%= dialogue.senderUsername || 'Неизвестный' %> | Получатель: <%= dialogue.receiverUsername || 'Неизвестный' %>
+                                    <% } %>
+                                </small>
+                            </div>
+                        </li>
+                    <% }) %>
+                <% } else { %>
+                    <li class="no-dialogs">Нет активных диалогов.</li>
+                <% } %>
             <% } else { %>
-                <li>Нет активных диалогов.</li>
+                <li class="no-dialogs">Ошибка: пользователь не найден.</li>
             <% } %>
         </ul>
     </section>
@@ -45,6 +180,5 @@
     <footer>
         <p>© 2023 Ваша компания. Все права защищены.</p>
     </footer>
-
 </body>
 </html>

@@ -3,36 +3,264 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Профиль пользователя</title>
+    <title>Профиль пользователя - <%= user.username %></title>
+    <link rel="stylesheet" href="/styles.css">
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #e9ecef;
+            color: #343a40;
+        }
+        h1, h2 {
+            color: #0056b3;
+            text-align: center;
+        }
+        nav {
+            background-color: #007bff;
+            padding: 15px;
+            display: flex;
+            justify-content: center;
+            flex-wrap: wrap;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+        }
+        nav a {
+            color: white;
+            padding: 10px 15px;
+            text-decoration: none;
+            border-radius: 5px;
+            margin: 5px;
+            transition: background-color 0.3s;
+        }
+        nav a:hover {
+            background-color: #0056b3;
+        }
+        .content {
+            max-width: 900px;
+            margin: 20px auto;
+            padding: 20px;
+            background: white;
+            border-radius: 5px;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+        }
+        .user-info {
+            display: flex;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+        .user-info img {
+            border-radius: 50%;
+            margin-right: 20px;
+            max-width: 100px;
+        }
+        .user-actions {
+            display: flex;
+            flex-direction: column;
+            margin-left: auto;
+        }
+        .user-actions button {
+            margin-top: 5px;
+            padding: 10px;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+        .user-actions button:hover {
+            background-color: #0056b3;
+        }
+        ul {
+            list-style-type: none;
+            padding: 0;
+        }
+        .post-card {
+            background: white;
+            margin: 10px auto;
+            padding: 15px;
+            border-radius: 5px;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+        }
+        .post-actions {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 10px;
+        }
+        .post-actions button {
+            padding: 5px 10px;
+            font-size: 14px;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+        .post-actions button:hover {
+            background-color: #0056b3;
+        }
+        video, img {
+            max-width: 100%;
+            border-radius: 5px;
+            margin: 10px 0;
+        }
+        footer {
+            text-align: center;
+            margin-top: 20px;
+            padding: 10px;
+            color: #777;
+            background-color: #f1f1f1;
+            border-top: 1px solid #ccc;
+        }
+    </style>
 </head>
 <body>
     <h1>Профиль - <%= user.username %></h1>
+    
     <nav>
         <a href="/logout">Выйти</a>
-        <a href="/login">Вход</a>
-        <a href="/register">Регистрация</a>
+        <a href="/home">Главная</a>
         <a href="/create-post">Создать пост</a>
+        <a href="/music">Музыка</a>
+        <a href="/calls">Звонки</a>
         <a href="/history">История сообщений</a>
-        <a href="/home">Лента новостей</a>
+        <a href="/friends">Список друзей</a>
+        <a href="/profile/<%= currentUser ? currentUser._id : '' %>">Профиль</a>
     </nav>
 
-    <h2>Информация о пользователе:</h2>
-    <p>Имя: <%= user.name %></p>
-    <p>Email: <%= user.email %></p>
-    <img src="<%= user.profilePicture %>" alt="Фото профиля" width="120" height="120">
-    
-    <!-- Можно добавить дополнительные элементы генерируемые для профиля -->
-    <h2>Посты пользователя:</h2>
-     <ul>
-    <% if (posts.length > 0) { %>
-        <% posts.forEach(post => { %>
-            <li>
-                <strong><%= post.content %></strong>
-            </li>
-        <% }); %>
-    <% } else { %>
-        <li>Постов пока нет.</li>
-    <% } %>
-</ul>
+    <div class="content">
+        <div class="user-info">
+            <img src="<%= user.profilePicture %>" alt="Фото профиля">
+            <div>
+                <h2><%= user.name %></h2>
+                <p><strong>Email:</strong> <%= user.email %></p>
+                <div class="user-actions">
+                    <button id="addFriendBtn" onclick="addFriend('<%= user._id %>')">Добавить в друзья</button>
+                    <button onclick="window.location.href='/messages/<%= user._id %>'">Написать сообщение</button>
+                </div>
+            </div>
+        </div>
+
+        <h2>Посты пользователя:</h2>
+        <ul>
+            <% if (posts && posts.length > 0) { %>
+                <% posts.forEach(post => { %>
+                    <li class="post-card">
+                        <p><strong><%= post.content %></strong></p>
+                        <% if (post.imageUrl) { %>
+                            <img src="<%= post.imageUrl %>" alt="Изображение поста">
+                        <% } %>
+                        <% if (post.videoUrl) { %>
+                            <video controls>
+                                <source src="<%= post.videoUrl %>" type="video/mp4">
+                                Ваш браузер не поддерживает видео.
+                            </video>
+                        <% } %>
+                        <p>Создан: <%= new Date(post.createdAt).toLocaleString() %></p>
+                        <div class="post-actions">
+                            <button onclick="likePost('<%= post._id %>')">👍 Лайк</button>
+                            <button onclick="sharePost('<%= post._id %>')">🔗 Переслать</button>
+                            <button onclick="commentPost('<%= post._id %>')">💬 Комментировать</button>
+                        </div>
+                    </li>
+                <% }) %>
+            <% } else { %>
+                <li>Нет постов у пользователя.</li>
+            <% } %>
+        </ul>
+    </div>
+
+    <footer>
+        <p>&copy; 2023 Ваш Ресурс</p>
+    </footer>
+
+    <script>
+        // Получение статуса дружбы при загрузке страницы
+        document.addEventListener('DOMContentLoaded', () => {
+            const userId = '<%= user._id %>';
+            const button = document.getElementById('addFriendBtn');
+
+            // Запрашиваем статус дружбы
+            fetch(`/api/friend-status/${userId}`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.status === 'friend') {
+                        button.textContent = 'У вас в друзьях';
+                        button.disabled = true; // Делаем кнопку недоступной
+                    } else if (data.status === 'pending') {
+                        button.textContent = 'Запрос отправлен';
+                        button.disabled = true; // Делаем кнопку недоступной
+                    }
+                })
+                .catch(error => console.error('Ошибка при получении статуса дружбы:', error));
+        });
+
+        // Функция для добавления в друзья
+        function addFriend(userId) {
+            fetch(`/api/send-friend-request`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ friendId: userId }) // Передаем идентификатор в теле запроса
+            })
+            .then(response => {
+                if (response.ok) {
+                    return response.json(); // Распаковка ответа в JSON
+                } else {
+                    throw new Error('Ошибка при добавлении в друзья.'); // Обработка ошибки
+                }
+            })
+            .then(data => {
+                alert(data.message); // Отображаем сообщение об успехе
+                document.getElementById('addFriendBtn').textContent = 'Запрос отправлен'; // Изменяем текст на кнопке
+                document.getElementById('addFriendBtn').disabled = true; // Делаем кнопку недоступной
+            })
+            .catch(error => {
+                console.error('Ошибка:', error);
+                alert(error.message); // Показ сообщения об ошибке
+            });
+        }
+
+        // Функция для лайка поста
+        function likePost(postId) {
+            fetch(`/api/like-post/${postId}`, { method: 'POST' })
+                .then(response => {
+                    if (response.ok) {
+                        alert('Пост понравился!');
+                    } else {
+                        alert('Ошибка при лайке поста.');
+                    }
+                });
+        }
+
+        // Функция для пересылки поста
+        function sharePost(postId) {
+            alert(`Пост ${postId} переслан!`); // Логика пересылки поста
+        }
+
+        // Функция для добавления комментария к посту
+        function commentPost(postId) {
+            const comment = prompt("Введите ваш комментарий:");
+            if (comment) {
+                fetch(`/api/comments/${postId}`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ content: comment }) // Передача комментария
+                })
+                .then(response => {
+                    if (response.ok) {
+                        alert('Комментарий добавлен!');
+                    } else {
+                        alert('Ошибка при добавлении комментария.');
+                    }
+                });
+            }
+        }
+    </script>
 </body>
 </html>

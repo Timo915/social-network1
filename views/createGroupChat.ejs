@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Создать групповой чат</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+        }
+        h1 {
+            color: #333;
+        }
+        ul {
+            list-style-type: none;
+            padding: 0;
+        }
+        li {
+            margin: 5px 0;
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            cursor: pointer; /* Указатель при наведении */
+        }
+        button {
+            background-color: #ff4c4c; /* Красный цвет для кнопки */
+            color: white;
+            border: none;
+            border-radius: 5px;
+            padding: 5px 10px;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #ff0000; /* Более темный красный при наведении */
+        }
+        .selected {
+            background-color: #a0e0a0; /* Цвет для помеченных участников */
+        }
+        .error {
+            color: red; /* Цвет для вывода ошибок */
+        }
+        #loading {
+            display: none; /* Скрыть индикатор загрузки по умолчанию */
+            font-weight: bold;
+        }
+        .success {
+            color: green; /* Цвет для успешного сообщения */
+        }
+    </style>
+</head>
+<body>
+    <h1>Создать групповой чат</h1>
+    <div id="loading">Загрузка друзей...</div>
+    <form id="groupChatForm">
+        <label for="chatName">Название чата:</label>
+        <input type="text" id="chatName" name="chatName" required>
+        <span id="chatNameError" class="error" style="display: none;"></span>
+        <span id="chatNameSuccess" class="success" style="display: none;"></span>
+        
+        <h3>Выберите аватар группы:</h3>
+        <input type="file" name="avatar" accept="image/*">
+        
+        <h3>Добавить участников:</h3>
+        <ul id="friendsList"></ul>
+        
+        <button type="submit">Создать групповой чат</button>
+    </form>
+
+    <script>
+        const selectedFriends = new Set(); 
+        const creatorId = '<%= user._id %>'; // Получите ID текущего авторизованного пользователя с сервера
+
+        async function loadFriends() {
+            document.getElementById('loading').style.display = 'block';
+            try {
+                const response = await fetch('/api/get-friends');
+                const friends = await response.json();
+                const friendsList = document.getElementById('friendsList');
+
+                friends.forEach(friend => {
+                    const listItem = document.createElement('li');
+                    listItem.id = `friend-${friend._id}`;
+                    listItem.innerHTML = `
+                        <span>${friend.username}</span>
+                        <input type="checkbox" style="display: none;" onchange="toggleSelection('${friend._id}', this)">
+                    `;
+                    listItem.onclick = () => {
+                        const checkbox = listItem.querySelector('input[type="checkbox"]');
+                        checkbox.checked = !checkbox.checked;
+                        toggleSelection(friend._id, checkbox);
+                    };
+                    friendsList.appendChild(listItem);
+                });
+            } catch (error) {
+                console.error('Ошибка при загрузке друзей:', error);
+            } finally {
+                document.getElementById('loading').style.display = 'none';
+            }
+        }
+
+        function toggleSelection(friendId, checkbox) {
+            const listItem = document.getElementById(`friend-${friendId}`);
+            if (checkbox.checked) {
+                selectedFriends.add(friendId);
+                listItem.classList.add('selected');
+            } else {
+                selectedFriends.delete(friendId);
+                listItem.classList.remove('selected');
+            }
+        }
+
+        function showError(message) {
+            const errorElement = document.getElementById('chatNameError');
+            errorElement.innerText = message;
+            errorElement.style.display = 'block';
+        }
+
+        function showSuccess(message) {
+            const successElement = document.getElementById('chatNameSuccess');
+            successElement.innerText = message;
+            successElement.style.display = 'block';
+        }
+
+        window.onload = () => {
+            loadFriends();
+        };
+
+        document.getElementById('groupChatForm').onsubmit = async (e) => {
+            e.preventDefault();
+            document.getElementById('chatNameError').style.display = 'none'; 
+            document.getElementById('chatNameSuccess').style.display = 'none'; 
+
+            if (selectedFriends.size === 0) {
+                showError('Пожалуйста, выберите хотя бы одного участника для группового чата!');
+                return;
+            }
+
+            const chatNameInput = document.getElementById('chatName');
+            if (!chatNameInput.value.trim()) {
+                showError('Название чата обязательно!');
+                return;
+            }
+
+            const formData = new FormData(document.getElementById('groupChatForm'));
+            selectedFriends.add(creatorId);
+            formData.append('members', JSON.stringify(Array.from(selectedFriends)));
+
+            try {
+                const response = await fetch('/create-group-chat', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const result = await response.json();
+                if (response.ok) {
+                    showSuccess('Групповой чат создан успешно!');
+                    // Перенаправление на страницу группового чата
+                    window.location.href = `/group/${result.groupChat._id}`; 
+                } else {
+                    showError(result.message || 'Ошибка при создании группового чата.');
+                }
+            } catch (error) {
+                console.error('Ошибка при отправке формы:', error);
+                showError('Ошибка при создании группового чата, попробуйте позже.');
+            }
+        };
+    </script>
+</body>
+</html>

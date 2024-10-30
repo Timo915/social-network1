@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Уведомления</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background-color: #f9f9f9; /* Добавлен фоновый цвет для улучшения восприятия */
+        }
+        nav {
+            margin-bottom: 20px;
+        }
+        h1, h2 {
+            color: #333;
+        }
+        ul {
+            list-style-type: none;
+            padding: 0;
+        }
+        li {
+            margin: 10px 0;
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            background-color: white; /* Белый цвет фона для элементов списка */
+        }
+        button {
+            margin-left: 10px;
+            background-color: #4CAF50; /* Цвет для кнопок */
+            color: white;
+            border: none;
+            border-radius: 5px;
+            padding: 5px 10px;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #45a049; /* Более темный цвет при наведении */
+        }
+    </style>
+</head>
+<body>
+    <h1>Уведомления</h1>
+    <nav>
+        <a href="/logout">Выйти</a>
+        <a href="/home">Главная</a>
+        <!-- Другие ссылки -->
+    </nav>
+
+    <h2>Запросы в друзья</h2>
+<ul>
+    <% if (!friendRequests || friendRequests.length === 0) { %>
+        <li>У вас нет новых запросов в друзья.</li>
+    <% } else { %>
+        <% friendRequests.forEach(request => { %>
+            <li>
+                <strong><%= request.sender.username || 'Автор не указан' %></strong> отправил вам запрос в друзья.
+                <button class="accept-button" data-request-id="<%= request._id %>">Принять</button>
+                <button onclick="declineRequest('<%= request._id %>')">Отклонить</button>
+            </li>
+        <% }); %>
+    <% } %>
+</ul>
+
+    <h2>Входящие звонки:</h2>
+    <ul id="incoming-calls">
+        <% if (incomingCalls && incomingCalls.length > 0) { %>
+            <% incomingCalls.forEach(call => { %>
+                <li id="call-<%= call.caller ? call.caller.id : '' %>">
+                    <span>Входящий вызов от: <span class="caller-username"><%= call.caller ? call.caller.username : 'Автор не указан' %></span></span>
+                    <button class="accept-button" data-caller-id="<%= call.caller ? call.caller.id : '' %>">Принять</button>
+                    <button class="reject-button" data-caller-id="<%= call.caller ? call.caller.id : '' %>" <%= !call.caller ? 'disabled' : '' %>>Отклонить</button>
+                </li>
+            <% }); %>
+        <% } else { %>
+            <li>Нет входящих вызовов.</li>
+        <% } %>
+    </ul>
+
+    <script>
+        document.querySelectorAll('.accept-button').forEach(button => {
+            button.addEventListener('click', function() {
+                const callerId = this.dataset.callerId;
+                if (callerId) {
+                    acceptCall(callerId);
+                }
+            });
+        });
+    
+        document.querySelectorAll('.reject-button').forEach(button => {
+            button.addEventListener('click', function() {
+                const callerId = this.dataset.callerId;
+                if (callerId) {
+                    rejectCall(callerId);
+                }
+            });
+        });
+    </script>
+
+    <h2>Пропущенные вызовы:</h2>
+    <ul id="missed-calls">
+        <% if (missedCalls && missedCalls.length > 0) { %>
+            <% missedCalls.forEach(call => { %>
+                <li>
+                    <strong>Пропущенный вызов от: <%= call.caller.username %></strong>
+                    <button onclick="callBack('<%= call.caller.id %>')">Перезвонить</button>
+                </li>
+            <% }); %>
+        <% } else { %>
+            <li>Нет пропущенных вызовов.</li>
+        <% } %>
+    </ul>
+
+    <h2>Лайки:</h2>
+    <ul>
+        <% if (notifications.likes && notifications.likes.length > 0) { %>
+            <% notifications.likes.forEach(notification => { %>
+                <li>
+                    <strong><%= notification.userId.username %></strong> лайкнул ваш пост: <%= notification.postId.title %>
+                </li>
+            <% }); %>
+        <% } else { %>
+            <li>Нет новых лайков.</li>
+        <% } %>
+    </ul>
+
+    <h2>Комментарии:</h2>
+    <ul>
+        <% if (notifications.comments && notifications.comments.length > 0) { %>
+            <% notifications.comments.forEach(notification => { %>
+                <li>
+                    <strong><%= notification.userId.username %></strong>: <%= notification.commentText %>
+                </li>
+            <% }); %>
+        <% } else { %>
+            <li>Нет новых комментариев.</li>
+        <% } %>
+    </ul>
+
+    <h2>Недавние посты:</h2>
+    <ul>
+        <% if (notifications.posts && notifications.posts.length > 0) { %>
+            <% notifications.posts.forEach(post => { %>
+                <li>
+                    <% if (post.author) { %>
+                        <strong><%= post.author.username %></strong>: <%= post.content %>
+                    <% } else { %>
+                        <strong>Автор не указан</strong>: <%= post.content %>
+                    <% } %>
+                </li>
+            <% }); %>
+        <% } else { %>
+            <li>Нет новых постов.</li>
+        <% } %>
+    </ul>
+
+    <script>
+        // Установка обработчиков события для всех кнопок "Принять"
+        document.querySelectorAll('.accept-button').forEach(button => {
+            button.addEventListener('click', function() {
+                const requestId = this.dataset.requestId;
+                acceptRequest(requestId); // Передаем только requestId
+            });
+        });
+
+        function acceptRequest(requestId) {
+            fetch(`/accept-request/${requestId}`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ accept: true }),
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    alert('Запрос принят.');
+                    location.reload(); // Обновляем страницу, чтобы отобразить изменения
+                } else {
+                    alert('Ошибка при принятии запроса: ' + data.message);
+                }
+            })
+            .catch(error => {
+                console.error('Ошибка:', error);
+                alert('Не удалось принять запрос. Попробуйте позже.');
+            });
+        }
+
+        function declineRequest(requestId) {
+            fetch(`/decline-request/${requestId}`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ accept: false }),
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    alert('Запрос отклонен.');
+                    location.reload(); // Обновляем страницу, чтобы отобразить изменения
+                } else {
+                    alert('Ошибка при отклонении запроса: ' + data.message);
+                }
+            })
+            .catch(error => {
+                console.error('Ошибка:', error);
+                alert('Не удалось отклонить запрос. Попробуйте позже.');
+            });
+        }
+
+        function acceptCall(callerId) {
+            console.log(`Принятие звонка от ${callerId}`);
+            // Здесь можно добавить дополнительную логику для подключения к звонку
+        }
+
+        function rejectCall(callerId) {
+            console.log(`Звонок от ${callerId} отклонён`);
+        }
+
+        function callBack(callerId) {
+            console.log(`Перезвонить ${callerId}`);
+        }
+    </script>
+</body>
+</html>

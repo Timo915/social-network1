@@ -3,102 +3,232 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Сообщения</title>
+    <title>Чат с <%= recipient.username %></title>
+    <link rel="stylesheet" href="/styles.css">
     <style>
         body {
             font-family: Arial, sans-serif;
-            background-color: #f4f4f4;
             margin: 0;
-            padding: 20px;
-        }
-        h1 {
-            color: #333;
-        }
-        nav {
-            margin-bottom: 20px;
-        }
-        nav a {
-            margin-right: 15px;
-        }
-        .message-container {
+            padding: 0;
+            background-color: #e9ecef;
+            color: #343a40;
             display: flex;
             flex-direction: column;
-            max-width: 600px;
-            margin: auto;
+            height: 100vh;
+        }
+        header {
+            background-color: #007bff;
+            padding: 15px;
+            color: white;
+            text-align: center;
+        }
+        .chat-container {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+        .messages {
+            flex: 1;
+            padding: 10px;
+            overflow-y: auto;
+            background: white;
+            border-bottom: 1px solid #ccc;
         }
         .message {
-            background-color: #fff;
-            border: 1px solid #ddd;
-            padding: 10px;
+            margin: 5px 0;
+            padding: 8px;
             border-radius: 5px;
-            margin-bottom: 10px;
-            position: relative;
-            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
         }
-        .message.sender {
+        .message.sent {
+            background-color: #007bff;
+            color: white;
             align-self: flex-end;
-            background-color: #e6f3ff;
-            border-radius: 5px 5px 5px 0;
         }
-        .message.receiver {
+        .message.received {
+            background-color: #e9ecef;
+            color: black;
             align-self: flex-start;
-            background-color: #f1f1f1;
-            border-radius: 0 5px 5px 5px;
         }
-        .timestamp {
-            font-size: 0.8em;
-            color: #777;
-            position: absolute;
-            bottom: 5px;
-            right: 10px;
-        }
-        .form-container {
-            margin-top: 20px;
+        .input-container {
             display: flex;
-            justify-content: space-between;
+            padding: 10px;
+            background: #f1f1f1;
         }
-        input[type="text"] {
+        .input-container input {
             flex: 1;
             padding: 10px;
             border: 1px solid #ccc;
             border-radius: 5px;
-            margin-right: 10px;
         }
-        button {
-            padding: 10px 15px;
+        .input-container button {
+            padding: 10px;
+            margin-left: 10px;
+            background-color: #007bff;
+            color: white;
             border: none;
             border-radius: 5px;
-            background-color: #007BFF;
-            color: white;
             cursor: pointer;
+            transition: background-color 0.3s;
         }
-        button:hover {
+        .input-container button:hover {
             background-color: #0056b3;
+        }
+        footer {
+            text-align: center;
+            padding: 10px;
+            color: #777;
+            background-color: #f1f1f1;
+            border-top: 1px solid #ccc;
         }
     </style>
 </head>
 <body>
-    <h1>Сообщения</h1>
-    <nav>
-        <a href="/home">На главную</a>
-        <a href="/logout">Выйти</a>
-    </nav>
+    <header>
+        <h1>Чат с <%= recipient.username %></h1>
+        <label for="languageSelector">Выберите язык сообщений:</label>
+        <select id="languageSelector" onchange="changeMessageLanguage()">
+            <option value="ru" <%= user.messageLanguage === 'ru' ? 'selected' : '' %>>Русский</option>
+            <option value="en" <%= user.messageLanguage === 'en' ? 'selected' : '' %>>English</option>
+            <option value="es" <%= user.messageLanguage === 'es' ? 'selected' : '' %>>Español</option>
+        </select>
+    </header>
 
-    <div class="message-container">
-        <% messages.forEach(message => { %>
-            <div class="message <%= message.sender.id === user.id ? 'sender' : 'receiver' %>">
-                <strong><%= message.sender.username %>: </strong>
-                <%= message.content %>
-                <div class="timestamp"><em>(<%= new Date(message.createdAt).toLocaleString() %>)</em></div>
-            </div>
-        <% }) %>
+    <div class="chat-container">
+        <div class="messages" id="messages">
+            <% messages.forEach(message => { %>
+                <div class="message <%= message.senderId === user._id ? 'sent' : 'received' %>">
+                    <p><%= message.content %></p>
+                </div>
+            <% }) %>
+        </div>
+
+        <div class="input-container">
+            <input type="text" id="messageInput" placeholder="Введите сообщение..." />
+            <button onclick="sendMessage()">Отправить</button>
+            <button onclick="translateMessage()">Перевести</button>
+        </div>
     </div>
 
-    <div class="form-container">
-        <form action="/send-message/<%= recipientId %>" method="POST">
-            <input type="text" name="content" placeholder="Введите сообщение" required />
-            <button type="submit">Отправить сообщение</button>
-        </form>
-    </div>
+    <footer>
+        <p>&copy; 2023 Ваш Ресурс</p>
+    </footer>
+
+    <script>
+        function changeMessageLanguage() {
+            const selectedLanguage = document.getElementById('languageSelector').value;
+
+            fetch('/api/change-message-language', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ language: selectedLanguage })
+            })
+            .then(response => {
+                if (response.ok) {
+                    alert('Язык сообщений изменён на ' + (selectedLanguage === 'ru' ? 'Русский' : selectedLanguage === 'en' ? 'English' : 'Españоль'));
+                } else {
+                    alert('Ошибка при изменении языка сообщений.');
+                }
+            })
+            .catch(error => {
+                console.error('Ошибка:', error);
+            });
+        }
+
+        function sendMessage() {
+    const messageInput = document.getElementById('messageInput');
+    const content = messageInput.value;
+
+    console.log("Отправка сообщения:", content); // Отладочное сообщение
+
+    if (!content) return; // Не отправляем пустые сообщения
+
+    // Теперь осуществим запрос
+    fetch(`/api/send-message/<%= recipient._id %>`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ content: content })
+    })
+    .then(response => {
+        if (response.ok) {
+            messageInput.value = ''; // Очищаем поле ввода
+            // Обновите сообщения здесь, если это необходимо
+        } else {
+            alert('Ошибка при отправке сообщения.');
+        }
+    })
+    .catch(error => {
+        console.error('Ошибка:', error);
+        alert('Ошибка при отправке сообщения.');
+    });
+}
+
+        function translateMessage() {
+            const messageInput = document.getElementById('messageInput');
+            const content = messageInput.value;
+
+            if (!content) return; // Не переводим пустые сообщения
+
+            fetch('/api/translate-message', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ 
+                    content: content,
+                    targetLanguage: document.getElementById('languageSelector').value 
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                // Отправляем две версии сообщения: оригинал и переведенную
+                sendTranslatedMessage(content, data.translatedContent);
+            })
+            .catch(error => {
+                console.error('Ошибка при переводе:', error);
+                alert('Ошибка при переводе сообщения.');
+            });
+        }
+
+        function sendTranslatedMessage(originalContent, translatedContent) {
+            fetch(`/api/send-message/<%= recipient._id %>`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ content: originalContent }) // Оригинальное сообщение
+            })
+            .then(() => {
+                // Отправка переведенного сообщения
+                return fetch(`/api/send-message/<%= recipient._id %>`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ content: translatedContent }) // Переведенное сообщение
+                });
+            })
+            .then(response => {
+                if (response.ok) {
+                    document.getElementById('messageInput').value = ''; // Очищаем поле ввода
+                    // Обновите сообщения здесь, если это необходимо
+                } else {
+                    alert('Ошибка при отправке переведенного сообщения.');
+                }
+            })
+            .catch(error => {
+                console.error('Ошибка при отправке сообщений:', error);
+                alert('Ошибка при отправке сообщений.');
+            });
+        }
+
+        // Автоматическая прокрутка вниз при добавлении новых сообщений
+        const messagesContainer = document.getElementById('messages');
+        messagesContainer.scrollTop = messagesContainer.scrollHeight;
+    </script>
 </body>
 </html>

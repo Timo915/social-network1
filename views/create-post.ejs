@@ -4,30 +4,148 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Создать пост</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #e9ecef; /* Новый цвет фона страницы */
+        }
+
+        header {
+            background-color: #4CAF50; /* Цвет заголовка */
+            color: white;
+            padding: 15px;
+            text-align: center;
+        }
+
+        nav {
+            margin: 0;
+            background-color: #333; /* Цвет навигации */
+        }
+
+        nav a {
+            padding: 14px 20px;
+            display: inline-block;
+            color: white;
+            text-decoration: none;
+            text-align: center;
+        }
+
+        nav a:hover {
+            background-color: #575757; /* Цвет навигации при наведении */
+        }
+
+        main {
+            padding: 20px;
+            max-width: 600px;
+            margin: auto; /* Центрируем основное содержимое */
+        }
+
+        form {
+            background-color: #fff; /* Цвет фона формы */
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+            margin-bottom: 20px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 10px;
+            font-weight: bold;
+        }
+
+        textarea {
+            width: 100%;
+            height: 100px;
+            padding: 10px;
+            border: 1px solid #ccc; /* Цвет рамки текстового поля */
+            border-radius: 4px;
+            margin-bottom: 15px;
+            resize: none; /* Запрет изменения размера текстового поля */
+            transition: border-color 0.3s; /* Плавный переход цвета рамки */
+        }
+
+        textarea:focus {
+            border-color: #4CAF50; /* Цвет рамки при фокусе */
+            outline: none; /* Убираем стандартный обвод */
+        }
+
+        input[type="file"] {
+            margin-bottom: 15px;
+        }
+
+        button {
+            background-color: #4CAF50; /* Цвет кнопки */
+            color: white;
+            border: none;
+            border-radius: 4px;
+            padding: 10px 20px;
+            cursor: pointer;
+            font-size: 16px; /* Увеличиваем размер шрифта кнопки */
+            transition: background-color 0.3s; /* Плавный переход цвета */
+        }
+
+        button:hover {
+            background-color: #45a049; /* Цвет кнопки при наведении */
+        }
+
+        .error {
+            color: red;
+            margin-top: 15px;
+            font-weight: bold; /* Жирный шрифт для ошибок */
+        }
+    </style>
 </head>
 <body>
-    <h1>Создать новый пост</h1>
-    <nav>
-        <a href="/logout">Выйти</a>
-        <a href="/login">Вход</a>
-        <a href="/register">Регистрация</a>
-        <a href="/create-post">Создать пост</a>
-        <a href="/history">История сообщений</a>
-        <a href="/home">Лента новостей</a>
-        <a href="/profile">Профиль</a>
-    </nav>
 
+<header>
+    <h1>Система постов</h1>
+</header>
+
+<nav>
+    <a href="/logout">Выйти</a>
+    <a href="/login">Вход</a>
+    <a href="/register">Регистрация</a>
+    <a href="/create-post">Создать пост</a>
+    <a href="/history">История сообщений</a>
+    <a href="/home">Лента новостей</a>
+    <a href="/profile">Профиль</a>
+</nav>
+
+<main>
+    <h2>Создать новый пост</h2>
+    
     <form action="/posts" method="POST" enctype="multipart/form-data">
-        <label for="content">Текст поста:</label>
-        <textarea name="content" placeholder="Введите текст поста..." required></textarea>
-        <br>
-        <label for="video">Загрузить видео:</label>
-        <input type="file" name="video" accept="video/*">
-        <button type="submit">Опубликовать</button>
+        <textarea name="content" placeholder="Напишите что-нибудь..."></textarea>
+    
+        <!-- Кнопка для выбора файлов -->
+        <input type="file" name="files" multiple />
+    
+        <button type="submit">Создать пост</button>
     </form>
 
-    <% if (typeof error !== 'undefined') { %>
-        <p style="color:red;"><%= error %></p>
+    <% if (typeof error !== 'undefined' && error) { %>
+        <p class="error"><%= error %></p>
     <% } %>
+</main>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/emoji-button/3.8.1/emoji-button.min.js"></script>
+<script>
+    const btn = document.querySelector('#emoji-button');
+    const input = document.querySelector('textarea[name="content"]');
+    const picker = new EmojiButton();
+
+    btn.addEventListener('click', () => {
+        picker.togglePicker(input);
+    });
+
+    picker.on('emoji', emoji => {
+        input.value += emoji; // Вставляем эмодзи в текстовое поле
+    });
+</script>
+
+<button id="emoji-button">😊</button>
+
 </body>
 </html>

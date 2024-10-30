@@ -1,20 +1,28 @@
 const jwt = require('jsonwebtoken');
 const User = require('../models/User');
 
-exports.protect = async (req, res, next) => {
+// Middleware для защиты маршрутов
+const protect = async (req, res, next) => {
     let token;
 
+    // Проверка заголовка Authorization
     if (req.headers.authorization && req.headers.authorization.startsWith('Bearer')) {
-        token = req.headers.authorization.split(' ')[1];
+        try {
+            // Извлечение токена из заголовка
+            token = req.headers.authorization.split(' ')[1];
+            // Верификация токена
+            const decoded = jwt.verify(token, process.env.JWT_SECRET);
+            // Получаем пользователя в зависимости от ID токена
+            req.user = await User.findById(decoded.id).select('-password'); 
+            return next(); // Если все хорошо, продолжаем
+        } catch (error) {
+            console.error('Ошибка аутентификации:', error);
+            return res.status(401).json({ message: 'Не авторизован, токен недействителен.' });
+        }
     }
 
-    if (!token) return res.status(401).json({ message: 'Not authorized, no token' });
-
-    try {
-        const decoded = jwt.verify(token, process.env.JWT_SECRET);
-        req.user = await User.findById(decoded.id).select('-password');
-        next();
-    } catch (error) {
-        return res.status(401).json({ message: 'Not authorized, token failed' });
-    }
+    // Если токен отсутствует
+    return res.status(401).json({ message: 'Не авторизован, токен не найден.' });
 };
+
+module.exports = { protect };

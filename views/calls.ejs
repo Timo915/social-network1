@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Список Друзей и Звонки</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background-color: #f9f9f9;
+        }
+        h1 {
+            color: #333;
+            text-align: center;
+        }
+        #search {
+            margin: 20px auto;
+            max-width: 400px;
+            display: flex;
+            justify-content: center;
+        }
+        input[type="text"] {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+        }
+        .user-card {
+            margin: 5px 0;
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: white;
+        }
+        button {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            padding: 5px 10px;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        .call-controls {
+            display: flex;
+            align-items: center;
+        }
+        .toggle-button {
+            margin-left: 10px;
+        }
+        ul {
+            list-style-type: none;
+            padding: 0;
+            max-width: 600px;
+            margin: 0 auto;
+        }
+        .call-history {
+            margin-top: 40px;
+            border-top: 2px solid #007bff;
+            padding-top: 20px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Список Друзей</h1>
+
+    <div id="search">
+        <input type="text" id="searchInput" placeholder="Поиск пользователей...">
+    </div>
+
+    <h2>Друзья</h2>
+    <ul id="friendsList"></ul>
+
+    <h2>Отправленные запросы</h2>
+    <ul id="sentRequestsList"></ul>
+
+    <h2 class="call-history">История Звонков</h2>
+<ul id="callHistoryList">
+    <% calls.forEach(call => { %>
+        <li class="user-card">
+            <span>Звонок с <%= call.withUser.username %>, Дата: <%= new Date(call.callData.createdAt).toLocaleString() %>, Статус: <%= call.status %></span>
+        </li>
+    <% }); %>
+</ul>
+
+    <div id="callInterface" style="display:none;">
+        <h2>Вызов с <span id="callRecipient"></span></h2>
+        <div class="call-controls">
+            <button id="endCallButton">Завершить звонок</button>
+            <label>
+                <input type="checkbox" id="muteButton" class="toggle-button" />
+                Отключить микрофон
+            </label>
+            <label>
+                <input type="checkbox" id="cameraButton" class="toggle-button" />
+                Отключить камеру
+            </label>
+        </div>
+    </div>
+
+    <ul id="searchResults"></ul>
+
+    <script>
+        let currentCallRecipientId = null; 
+        let currentStream = null; // Хранит текущий медиа поток
+
+        async function loadFriends() {
+            try {
+                const response = await fetch('/api/get-friends');
+                const friends = await response.json();
+                const friendsList = document.getElementById('friendsList');
+                friendsList.innerHTML = '';
+
+                friends.forEach(friend => {
+                    const listItem = document.createElement('li');
+                    listItem.className = 'user-card';
+                    listItem.innerHTML = `
+                        <span>${friend.username}</span>
+                        <button onclick="initiateCall('${friend._id}')">Обычный звонок</button>
+                        <button onclick="initiateVideoCall('${friend._id}')">Видеозвонок</button>
+                    `;
+                    friendsList.appendChild(listItem);
+                });
+            } catch (error) {
+                console.error('Ошибка при загрузке друзей:', error);
+            }
+        }
+
+        async function loadSentRequests() {
+            try {
+                const response = await fetch('/api/get-sent-requests');
+                const requests = await response.json();
+                const sentRequestsList = document.getElementById('sentRequestsList');
+                sentRequestsList.innerHTML = '';
+
+                requests.forEach(request => {
+                    const listItem = document.createElement('li');
+                    listItem.className = 'user-card';
+                    listItem.innerHTML = `
+                        <span>${request.receiver.username} (запрос отправлен)</span>
+                        <button onclick="cancelFriendRequest('${request._id}')">Отменить запрос</button>
+                    `;
+                    sentRequestsList.appendChild(listItem);
+                });
+            } catch (error) {
+                console.error('Ошибка при загрузке отправленных запросов:', error);
+            }
+        }
+
+        async function loadCallHistory() {
+            try {
+                const response = await fetch('/api/calls');
+                const calls = await response.json();
+                const callHistoryList = document.getElementById('callHistoryList');
+                callHistoryList.innerHTML = '';
+
+                calls.forEach(call => {
+                    const listItem = document.createElement('li');
+                    listItem.className = 'user-card';
+                    listItem.innerHTML = `
+                        <span>Звонок к ${call.recipient.username}, Дата: ${new Date(call.createdAt).toLocaleString()}</span>
+                    `;
+                    callHistoryList.appendChild(listItem);
+                });
+            } catch (error) {
+                console.error('Ошибка при загрузке истории звонков:', error);
+            }
+        }
+
+        async function cancelFriendRequest(requestId) {
+            const response = await fetch(`/api/cancel-request/${requestId}`, {
+                method: 'DELETE',
+            });
+
+            if (response.ok) {
+                alert('Запрос на дружбу отменен');
+                loadSentRequests();
+            } else {
+                alert('Ошибка при отмене запроса');
+            }
+        }
+
+        async function searchUsers() {
+            const searchTerm = document.getElementById('searchInput').value.trim();
+            try {
+                const response = await fetch(`/api/search-users?term=${searchTerm}`);
+                const users = await response.json();
+                const resultsList = document.getElementById('searchResults');
+                resultsList.innerHTML = '';
+
+                if (users.length > 0) {
+                    users.forEach(user => {
+                        const resultItem = document.createElement('li');
+                        resultItem.className = 'user-card';
+                        resultItem.innerHTML = `
+                            <span>${user.username}</span>
+                            <button onclick="initiateVideoCall('${user._id}')">Видеозвонок</button>
+                        `;
+                        resultsList.appendChild(resultItem);
+                    });
+                } else {
+                    resultsList.innerHTML = '<li>Пользователи не найдены.</li>';
+                }
+            } catch (error) {
+                console.error('Ошибка при поиске пользователей:', error);
+            }
+        }
+
+        async function initiateCall(userId) {
+            try {
+                // Логика для инициирования обычного звонка
+                alert(`Обычный звонок с пользователем ${userId} инициализирован!`);
+            } catch (error) {
+                console.error('Ошибка:', error);
+                alert('Ошибка при инициации обычного звонка.');
+            }
+        }
+
+        async function initiateVideoCall(userId) {
+    currentCallRecipientId = userId;
+    document.getElementById('callRecipient').innerText = userId;
+    document.getElementById('callInterface').style.display = 'block';
+
+    try {
+        const response = await fetch(`/api/initiate-call`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            // Передаем friendId и callType
+            body: JSON.stringify({ friendId: userId, callType: 'video' })
+        });
+
+        if (response.ok) {
+            alert(`Видеозвонок с пользователем ${userId} инициализирован!`);
+            currentStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+        } else {
+            const errorData = await response.json();
+            throw new Error(`Ошибка при инициации видеозвонка: ${errorData.message || response.statusText}`);
+        }
+    } catch (error) {
+        console.error('Ошибка:', error);
+        alert(error.message);
+    }
+}
+
+        document.getElementById('endCallButton').addEventListener('click', () => {
+            alert(`Звонок с пользователем ${currentCallRecipientId} завершен.`);
+            document.getElementById('callInterface').style.display = 'none'; 
+
+            if (currentStream) {
+                currentStream.getTracks().forEach(track => track.stop());
+            }
+        });
+
+        document.getElementById('muteButton').addEventListener('change', (event) => {
+            if (currentStream) {
+                currentStream.getAudioTracks().forEach(track => {
+                    track.enabled = !event.target.checked;
+                });
+            }
+        });
+
+        document.getElementById('cameraButton').addEventListener('change', (event) => {
+            if (currentStream) {
+                currentStream.getVideoTracks().forEach(track => {
+                    track.enabled = !event.target.checked;
+                });
+            }
+        });
+
+        window.onload = async () => {
+            await loadFriends();
+            await loadSentRequests();
+            await loadCallHistory();
+            document.getElementById('searchInput').addEventListener('input', searchUsers);
+        };
+    </script>
+</body>
+</html>
