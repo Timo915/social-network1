@@ -154,24 +154,38 @@
         }
 
         async function loadCallHistory() {
-            try {
-                const response = await fetch('/api/calls');
-                const calls = await response.json();
-                const callHistoryList = document.getElementById('callHistoryList');
-                callHistoryList.innerHTML = '';
-
-                calls.forEach(call => {
-                    const listItem = document.createElement('li');
-                    listItem.className = 'user-card';
-                    listItem.innerHTML = `
-                        <span>Звонок к ${call.recipient.username}, Дата: ${new Date(call.createdAt).toLocaleString()}</span>
-                    `;
-                    callHistoryList.appendChild(listItem);
-                });
-            } catch (error) {
-                console.error('Ошибка при загрузке истории звонков:', error);
+    try {
+        const response = await fetch('/api/calls');
+        if (!response.ok) {
+            if (response.status === 401) {
+                alert('Вы не авторизованы. Пожалуйста, войдите в систему.');
+                window.location.href = '/login'; // Перенаправить на страницу логина
             }
+            console.error('Ошибка при загрузке истории звонков:', response.statusText);
+            return; // Завершаем выполнение функции
         }
+        const calls = await response.json();
+        const callHistoryList = document.getElementById('callHistoryList');
+        callHistoryList.innerHTML = '';
+
+        // Убедитесь, что данные возвращены в виде массива
+        if (!Array.isArray(calls)) {
+            console.error('Ошибка: полученные данные не являются массивом:', calls);
+            return;
+        }
+
+        calls.forEach(call => {
+            const listItem = document.createElement('li');
+            listItem.className = 'user-card';
+            listItem.innerHTML = `
+                <span>Звонок с ${call.withUser.username}, Дата: ${new Date(call.createdAt).toLocaleString()}</span>
+            `;
+            callHistoryList.appendChild(listItem);
+        });
+    } catch (error) {
+        console.error('Ошибка при загрузке истории звонков:', error);
+    }
+}
 
         async function cancelFriendRequest(requestId) {
             const response = await fetch(`/api/cancel-request/${requestId}`, {

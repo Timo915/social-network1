@@ -361,21 +361,19 @@ socket.on('accept-call', async (callId) => {
     });
 });
 
-app.get('/calls', async (req, res) => {
+app.get('/api/calls', async (req, res) => {
     if (!req.isAuthenticated()) {
-        return res.redirect('/login');
+        return res.status(401).json({ message: 'Unauthorized' });
     }
 
     try {
-        const calls = await Call.find({ userId: req.user.id }).populate('withUser');
+        const calls = await Call.find({ userId: req.user.id }).populate('withUser', 'username');
 
-        // Получаем список всех пользователей для выбора
-        const users = await User.find();
-
-        res.render('calls', { calls, users }); // Передайте users и calls в представление
+        // Если данные успешно найдены, отправляем их
+        return res.json(calls);
     } catch (error) {
-        console.error('Ошибка при загрузке звонков:', error);
-        res.status(500).send('Ошибка сервера');
+        console.error('Ошибка при получении звонков:', error);
+        return res.status(500).json({ message: 'Ошибка сервера' });
     }
 });
 
