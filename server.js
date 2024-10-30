@@ -462,6 +462,7 @@ app.get('/messages/:recipientId', async (req, res) => {
     }
 
     try {
+        // Найдем сообщения между пользователями
         const messages = await Message.find({
             $or: [
                 { senderId: req.user.id, receiverId: recipientId },
@@ -469,7 +470,13 @@ app.get('/messages/:recipientId', async (req, res) => {
             ]
         }).populate('senderId receiverId'); // Если используете Mongoose
 
-        // Обрабатываем сообщения как прежде...
+        // Обновляем статус сообщений как "прочитано", если они отправлены к текущему пользователю
+        await Message.updateMany(
+            { senderId: recipientId, receiverId: req.user.id, isRead: false },
+            { $set: { isRead: true } }
+        );
+
+        // Форматируем сообщения для передачи в шаблон
         const formattedMessages = messages.map(message => ({
             id: message._id,
             sender: {
@@ -482,7 +489,7 @@ app.get('/messages/:recipientId', async (req, res) => {
             },
             content: message.content,
             createdAt: message.createdAt,
-            updatedAt: message.updatedAt
+            isRead: message.isRead // добавляем статус прочтения
         }));
 
         res.render('messages', {
@@ -496,6 +503,7 @@ app.get('/messages/:recipientId', async (req, res) => {
     }
 });
 
+
 // Отправка сообщения
 app.post('/send-message/:recipientId', async (req, res) => {
     const recipientId = req.params.recipientId;
@@ -506,6 +514,7 @@ app.post('/send-message/:recipientId', async (req, res) => {
             senderId: req.user.id, // текущий пользователь
             receiverId: recipientId,
             content: content,
+            isRead: false // по умолчанию - не прочитано
         });
 
         await message.save();
@@ -533,7 +542,7 @@ app.get('/history', isAuthenticated, async (req, res) => {
     const currentUserId = req.user.id;
 
     try {
-        // Извлечение всех личных сообщений
+        // Извлечение всех личных сообщений для текущего пользователя
         const messages = await Message.find({
             $or: [
                 { senderId: currentUserId },
@@ -548,7 +557,7 @@ app.get('/history', isAuthenticated, async (req, res) => {
 
         // Обработка личных сообщений
         messages.forEach(message => {
-            const otherUser = (message.senderId && message.senderId._id.toString() === currentUserId) 
+            const otherUser = message.senderId._id.toString() === currentUserId 
                 ? message.receiverId 
                 : message.senderId;
 
@@ -564,12 +573,16 @@ app.get('/history', isAuthenticated, async (req, res) => {
                             profilePicture: otherUser.profilePicture || '/default-avatar.png',
                         },
                         isGroupChat: false,
+                        unreadCount: message.isRead ? 0 : 1, // Индикатор непрочитанных сообщений
                     };
                 } else {
                     // Обновление последнего сообщения, если оно более новое
                     if (message.createdAt > dialogues[otherUserId].lastMessageDate) {
                         dialogues[otherUserId].lastMessage = message.content;
                         dialogues[otherUserId].lastMessageDate = message.createdAt;
+                    }
+                    if (!message.isRead) {
+                        dialogues[otherUserId].unreadCount++;
                     }
                 }
             }
@@ -581,11 +594,11 @@ app.get('/history', isAuthenticated, async (req, res) => {
         })
         .populate('participants.userId', 'username profilePicture');
 
-        // Добавление групповых чатов в dialogues
+        // Добавление информации о групповых чатах
         for (const chat of groupChats) {
-            // Определяем последнее сообщение для группового чата, если оно есть
             const lastMessage = chat.lastMessage ? chat.lastMessage.content : 'Нет сообщений';
             const lastMessageDate = chat.lastMessage ? chat.lastMessage.createdAt : chat.createdAt;
+            const unreadCount = chat.lastMessage && chat.lastMessage.isRead === false ? 1 : 0; // Индикатор непрочитанных сообщений
 
             dialogues[chat._id.toString()] = {
                 userId: chat._id.toString(),
@@ -597,16 +610,18 @@ app.get('/history', isAuthenticated, async (req, res) => {
                 },
                 isGroupChat: true,
                 participantsCount: chat.participants.length,
+                unreadCount: unreadCount // Количество непрочитанных сообщений группы
             };
         }
 
-        const results = Object.values(dialogues).sort((a, b) => b.lastMessageDate - a.lastMessageDate); // Сортировка по дате сообщения
+        const results = Object.values(dialogues).sort((a, b) => b.lastMessageDate - a.lastMessageDate);
         res.render('history', { dialogues: results, user: req.user });
     } catch (error) {
         console.error('Ошибка при получении истории сообщений:', error);
         return res.status(500).render('error', { message: 'Ошибка при получении истории сообщений.' });
     }
 });
+
 
 app.get('/api/unread-messages-count', async (req, res) => {
     if (!req.user) {

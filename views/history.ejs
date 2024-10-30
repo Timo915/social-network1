@@ -147,7 +147,12 @@
                                 <strong>
                                     <a href="<%= dialogue.isGroupChat ? `/group/${dialogue.userId}` : `/profile/${dialogue.userId}` %>" 
                                        style="color: #343a40; text-decoration: none;">
-                                       <%= dialogue.isGroupChat ? dialogue.userInfo.name : dialogue.userInfo.name %>
+                                       <%= dialogue.userInfo.name %>
+                                       <% if (dialogue.unreadCount > 0) { %>
+                                           <span class="badge" style="background-color: #ff5733; color: white; border-radius: 50%; padding: 0 5px; margin-left: 5px;">
+                                               <%= dialogue.unreadCount %>
+                                           </span>
+                                       <% } %>
                                     </a>
                                 </strong>
                             </div>
@@ -156,16 +161,6 @@
                                 <br>
                                 <small>Создано: <%= new Date(dialogue.lastMessageDate).toLocaleString() %></small>
                             </p>
-                            <div class="participants">
-                                <small>
-                                    <% if (dialogue.isGroupChat) { %>
-                                        Участников: <%= dialogue.participantsCount || '0' %>
-                                        <span class="group-icon">👥</span>
-                                    <% } else { %>
-                                        Отправитель: <%= dialogue.senderUsername || 'Неизвестный' %> | Получатель: <%= dialogue.receiverUsername || 'Неизвестный' %>
-                                    <% } %>
-                                </small>
-                            </div>
                         </li>
                     <% }) %>
                 <% } else { %>
