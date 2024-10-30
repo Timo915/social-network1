@@ -293,61 +293,52 @@ io.on('connection', (socket) => {
     // Обработка инициации звонка
     // Обработка входящего звонка
     socket.on('initiate-call', async ({ userId, callType }) => {
-    if (!userId || !socket.request.user._id) { // Проверяем, что оба идентификатора существуют
-        console.error('Неудовлетворительные данные для инициации вызова:', { userId, requesterId: socket.request.user._id });
-        return; // Завершаем функцию, если данные не валидны
-    }
-
-    const callData = { 
-        type: callType,
-        createdAt: new Date() // добавляем время создания вызова
-    };
-
-    const newCall = new Call({
-        userId: socket.request.user._id, // Идентификатор инициатора звонка
-        withUser: userId, // Идентификатор пользователя, с которым инициируется звонок
-        callData: callData,
-        status: 'incoming'
-    });
-
-    try {
-        const savedCall = await newCall.save(); // Сохраняем вызов в базе данных
-        console.log('Call initiated:', savedCall);
-        
-        // Уведомление о звонке
-        io.to(userId).emit('incoming-call', { callerId: socket.request.user._id, callDetails: savedCall });
-    } catch (error) {
-        console.error('Ошибка при сохранении звонка:', error);
-    }
-});
-
-// Обработка принятия звонка
-socket.on('accept-call', async (callId) => {
-    if (!callId) {
-        console.error('Не передан ID звонка.');
-        return; // Завершаем функцию, если ID звонка не предоставлен
-    }
-
-    try {
-        const call = await Call.findByIdAndUpdate(callId, { status: 'accepted' }); // Обновляем статус вызова
-        if (!call) {
-            console.error('Вызов не найден с ID:', callId);
-            return; // Завершаем, если вызов не найден
+        if (!userId || !socket.request.user._id) {
+            console.error('Неудовлетворительные данные для инициации вызова:', { userId });
+            return;
         }
 
-        console.log('Call accepted:', call);
-        // Логика после принятия вызова, например, уведомление других участников
-    } catch (error) {
-        console.error('Ошибка при принятии звонка:', error);
-    }
-});
+        const newCall = new Call({
+            userId: socket.request.user._id,
+            withUser: userId,
+            callData: { type: callType, createdAt: new Date() },
+            status: 'incoming'
+        });
 
-    // Обработка завершения звонка
+        try {
+            const savedCall = await newCall.save();
+            console.log('Call initiated:', savedCall);
+            io.to(userId).emit('incoming-call', { callerId: socket.request.user._id, callDetails: savedCall });
+        } catch (error) {
+            console.error('Ошибка при сохранении звонка:', error);
+        }
+    });
+
+    // Обработка принятия звонка
+    socket.on('accept-call', async (callId) => {
+        if (!callId) {
+            console.error('Не передан ID звонка.');
+            return;
+        }
+
+        try {
+            const call = await Call.findByIdAndUpdate(callId, { status: 'accepted' });
+            if (!call) {
+                console.error('Вызов не найден с ID:', callId);
+                return;
+            }
+            console.log('Call accepted:', call);
+        } catch (error) {
+            console.error('Ошибка при принятии звонка:', error);
+        }
+    });
+
     socket.on('end-call', async (call) => {
         await Call.findByIdAndUpdate(call._id, { status: 'ended' });
         socket.emit('call-ended');
         socket.to(call.withUser).emit('call-ended');
     });
+
 
     socket.on('incoming-call', (data) => {
         // Это событие должно добавлять новый вызов в список на фронтенде
