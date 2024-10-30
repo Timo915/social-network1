@@ -64,20 +64,27 @@
     <% } %>
 </ul>
 
-    <h2>Входящие звонки:</h2>
-    <ul id="incoming-calls">
-        <% if (incomingCalls && incomingCalls.length > 0) { %>
-            <% incomingCalls.forEach(call => { %>
-                <li id="call-<%= call.caller ? call.caller.id : '' %>">
-                    <span>Входящий вызов от: <span class="caller-username"><%= call.caller ? call.caller.username : 'Автор не указан' %></span></span>
-                    <button class="accept-button" data-caller-id="<%= call.caller ? call.caller.id : '' %>">Принять</button>
-                    <button class="reject-button" data-caller-id="<%= call.caller ? call.caller.id : '' %>" <%= !call.caller ? 'disabled' : '' %>>Отклонить</button>
-                </li>
-            <% }); %>
-        <% } else { %>
-            <li>Нет входящих вызовов.</li>
-        <% } %>
-    </ul>
+<h2>Входящие звонки:</h2>
+<ul id="incoming-calls">
+    <% if (incomingCalls && incomingCalls.length > 0) { %>
+        <% incomingCalls.forEach(call => { %>
+            <li id="call-<%= call._id %>">
+                <span>
+                    Входящий вызов от: 
+                    <strong>
+                        <%= call.user.username %>
+                    </strong>
+                </span>
+                <span class="call-buttons">
+                    <button class="accept-button" data-caller-id="<%= call.user.id %>">Принять</button>
+                    <button class="reject-button" data-caller-id="<%= call.user.id %>" <%= !call.user.id ? 'disabled' : '' %>>Отклонить</button>
+                </span>
+            </li>
+        <% }); %>
+    <% } else { %>
+        <li>Нет входящих вызовов.</li>
+    <% } %>
+</ul>
 
     <script>
         document.querySelectorAll('.accept-button').forEach(button => {
@@ -165,28 +172,25 @@
             });
         });
 
-        function acceptRequest(requestId) {
-            fetch(`/accept-request/${requestId}`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({ accept: true }),
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.success) {
-                    alert('Запрос принят.');
-                    location.reload(); // Обновляем страницу, чтобы отобразить изменения
-                } else {
-                    alert('Ошибка при принятии запроса: ' + data.message);
-                }
-            })
-            .catch(error => {
-                console.error('Ошибка:', error);
-                alert('Не удалось принять запрос. Попробуйте позже.');
-            });
+        async function acceptFriendRequest(requestId) {
+    try {
+        const response = await fetch(`/accept-request/${requestId}`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+        });
+
+        if (!response.ok) {
+            throw new Error('Failed to accept friend request');
         }
+
+        const data = await response.json();
+        console.log(data.message); // Успешное сообщение
+    } catch (error) {
+        console.error('Error accepting friend request:', error);
+    }
+}
 
         function declineRequest(requestId) {
             fetch(`/decline-request/${requestId}`, {

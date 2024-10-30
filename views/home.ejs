@@ -53,6 +53,7 @@
             border-radius: 50%;
             padding: 0 5px;
             margin-left: 5px;
+            font-size: 12px; /* Уменьшаем размер шрифта для эстетики */
         }
 
         h2 {
@@ -182,7 +183,7 @@
         <a href="/create-post">Создать пост</a>
         <a href="/music">Музыка</a>
         <a href="/calls">Звонки</a>
-        <a href="/history">История сообщений</a>
+        <a href="/history">История сообщений <span id="unreadMessageCount" class="message-badge">0</span></a> <!-- Счетчик непрочитанных сообщений -->
         <a href="/friends">Список друзей</a>
         <a href="/profile/<%= currentUser._id %>">Профиль</a>
 
@@ -232,8 +233,7 @@
                         <span><%= user.username %></span>
                         <div class="button-group">
                             <button onclick="window.location.href='/messages/<%= user._id %>'">Написать сообщение</button>
-                            <button onclick="window.location.href='/audio-call/<%= user._id %>'">Голосовой звонок</button>
-                            <button onclick="window.location.href='/video-call/<%= user._id %>'">Видеозвонок</button>
+                            <!-- Убрали счетчик непрочитанных сообщений -->
                         </div>
                         <button class="open-profile-button" onclick="window.location.href='/profile/<%= user._id %>'">Открыть профиль</button>
                     </li>
@@ -285,16 +285,44 @@
 
     <script>
         async function updateNotificationCount() {
+    try {
+        const response = await fetch('/api/unread-notifications');
+        const data = await response.json();
+
+        const notificationBadge = document.getElementById('notification-count');
+        notificationBadge.textContent = data.totalCount || 0; // Установите количество уведомлений
+
+        // Обработка входящих заявок в друзья
+        const requestsList = document.getElementById('friend-requests-list');
+        requestsList.innerHTML = ''; // Очистить список перед обновлением
+        if (data.friendRequests && data.friendRequests.length > 0) {
+            data.friendRequests.forEach(request => {
+                requestsList.innerHTML += `<li>${request.from} отправил вам запрос в друзья. <button onclick="acceptRequest('${request.id}')">Принять</button> <button onclick="declineRequest('${request.id}')">Отклонить</button></li>`;
+            });
+        } else {
+            requestsList.innerHTML = '<li>Нет новых запросов в друзья.</li>';
+        }
+    } catch (err) {
+        console.error('Ошибка загрузки количества уведомлений:', err);
+    }
+}
+
+        async function updateMessageCount() {
             try {
-                const response = await fetch('/api/unread-notifications');
+                const response = await fetch('/api/unread-messages');
                 if (!response.ok) {
-                    throw new Error('Сетевая ошибка');
+                    throw new Error('Network response was not ok');
                 }
                 const data = await response.json();
-                document.getElementById('notification-count').textContent =
-                    data.totalCount > 0 ? data.totalCount : '';
-            } catch (err) {
-                console.error('Ошибка загрузки количества уведомлений:', err);
+                console.log(data); // Log for debugging
+                const messageBadge = document.getElementById('unreadMessageCount'); // Изменение на правильный id
+                if (messageBadge) {
+                    messageBadge.innerText = data.totalCount; // Set unread messages count
+                } else {
+                    console.error('Element with ID "unreadMessageCount" not found');
+                }
+            } catch (error) {
+                console.error('Ошибка загрузки количества непрочитанных сообщений:', error);
             }
         }
 
@@ -302,6 +330,11 @@
         setInterval(updateNotificationCount, 10000);
         // Первичное обновление
         updateNotificationCount();
+        
+        // Обновление непрочитанных сообщений каждые 10 секунд
+        setInterval(updateMessageCount, 10000);
+        // Первичное обновление
+        updateMessageCount();
     </script>
 </body>
 </html>

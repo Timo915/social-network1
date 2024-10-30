@@ -117,6 +117,8 @@ app.use(bodyParser.urlencoded({ extended: false }));
 app.use(passport.initialize()); // Подключаем Passport
 app.use(passport.session()); // Подключаем сессии
 
+app.use(express.static(path.join(__dirname, 'public')));
+
 
 
 // Настраиваем стратегию локальной аутентификации
@@ -180,6 +182,10 @@ function isAuthenticated(req, res, next) {
     }
     res.redirect('/login'); // Если нет, перенаправляем на страницу логина
 }
+
+app.get('/styles.css', (req, res) => {
+    res.sendFile(path.join(__dirname, 'public/styles.css')); // Убедитесь, что путь к файлу правильный
+});
 
 app.get('/home', isAuthenticated, async (req, res) => {
     const userId = req.user._id; // Получаем id текущего пользователя
@@ -352,6 +358,34 @@ io.on('connection', (socket) => {
     });
 });
 
+app.get('/incoming-calls', async (req, res) => {
+    try {
+        const calls = await Call.find(); // Предполагается, что ваши вызовы содержат callerId
+
+        const enrichedCalls = await Promise.all(calls.map(async (call) => {
+            const callerId = call.callerId;
+
+            if (!callerId) {
+                console.warn(`CallerId для вызова отсутствует: ${call}`);
+                return { ...call.toObject(), caller: { id: null, username: 'Имя пользователя недоступно' } };
+            }
+
+            const caller = await User.findById(callerId);
+            if (!caller) {
+                console.warn(`Пользователь с ID ${callerId} не найден`);
+                return { ...call.toObject(), caller: { id: null, username: 'Имя пользователя недоступно' } };
+            }
+
+            return { ...call.toObject(), caller: { id: caller._id, username: caller.username } };
+        }));
+
+        res.json(enrichedCalls);
+    } catch (error) {
+        console.error("Ошибка при получении входящих вызовов:", error);
+        res.status(500).json({ message: "Внутренняя ошибка сервера." });
+    }
+});
+
 app.get('/calls', async (req, res) => {
     if (!req.isAuthenticated()) {
         return res.redirect('/login');
@@ -364,6 +398,25 @@ app.get('/calls', async (req, res) => {
     } catch (error) {
         console.error('Ошибка при загрузке звонков:', error);
         res.status(500).send('Ошибка сервера');
+    }
+});
+
+app.post('/api/mark-missed-call/:userId', isAuthenticated, async (req, res) => {
+    const userId = req.params.userId;
+
+    try {
+        const call = await Call.findOne({ userId: userId, status: 'incoming' });
+        if (!call) {
+            return res.status(404).json({ message: 'Звонок не найден.' });
+        }
+
+        call.status = 'missed';
+        await call.save();
+
+        res.status(200).json({ message: 'Звонок помечен как пропущенный.' });
+    } catch (error) {
+        console.error('Ошибка при пометке звонка как пропущенного:', error);
+        res.status(500).json({ message: 'Ошибка сервера' });
     }
 });
 
@@ -391,6 +444,22 @@ app.post('/api/initiate-call', isAuthenticated, async (req, res) => {
     }
 });
 
+app.post('/api/accept-call/:callId', async (req, res) => {
+    try {
+        const callId = req.params.callId;
+        // Логика принятия звонка здесь
+        // Например, обновление статуса звонка в базе данных
+        const result = await acceptCall(callId, req.user.id);
+        if (result.success) {
+            return res.status(200).send('Звонок принят');
+        } else {
+            return res.status(400).send('Не удалось принять звонок');
+        }
+    } catch (error) {
+        console.error('Ошибка при принятии звонка:', error);
+        res.status(500).send('Ошибка сервера');
+    }
+});
 // Обработчик для создания постов
 
 
@@ -449,9 +518,6 @@ app.get('/edit-video', (req, res) => {
 });
 
 
-// Главная страница
-
-
 // Получение сообщений между пользователями
 app.get('/messages/:recipientId', async (req, res) => {
     const recipientId = req.params.recipientId;
@@ -462,13 +528,24 @@ app.get('/messages/:recipientId', async (req, res) => {
     }
 
     try {
+        // Получаем количество непрочитанных сообщений
+        const unreadCount = await Message.countDocuments({
+            receiverId: req.user.id,
+            isRead: false
+        });
+
         // Найдем сообщения между пользователями
         const messages = await Message.find({
             $or: [
                 { senderId: req.user.id, receiverId: recipientId },
                 { senderId: recipientId, receiverId: req.user.id }
             ]
-        }).populate('senderId receiverId'); // Если используете Mongoose
+        }).populate('senderId receiverId');
+
+        // Проверяем, если сообщения найдены
+        if (!messages || messages.length === 0) {
+            return res.status(404).json({ message: 'No messages found.' });
+        }
 
         // Обновляем статус сообщений как "прочитано", если они отправлены к текущему пользователю
         await Message.updateMany(
@@ -489,13 +566,15 @@ app.get('/messages/:recipientId', async (req, res) => {
             },
             content: message.content,
             createdAt: message.createdAt,
-            isRead: message.isRead // добавляем статус прочтения
+            isRead: message.isRead
         }));
 
+        // Отправляем рендеринг шаблона с сообщениями и количеством непрочитанных сообщений
         res.render('messages', {
             messages: formattedMessages,
             recipientId: recipientId,
-            user: req.user // Передаем текущего пользователя
+            user: req.user,
+            unreadCount: unreadCount // Передаем количество непрочитанных сообщений
         });
     } catch (error) {
         console.error('Error fetching messages:', error);
@@ -623,21 +702,17 @@ app.get('/history', isAuthenticated, async (req, res) => {
 });
 
 
-app.get('/api/unread-messages-count', async (req, res) => {
-    if (!req.user) {
-        return res.status(403).json({ message: 'User not authenticated' });
+app.get('/api/unread-messages',isAuthenticated, async (req, res) => {
+    if (!req.user || !req.user.id) {
+        return res.status(403).json({ message: 'Пользователь не аутентифицирован' });
     }
 
     try {
-        const count = await Message.countDocuments({ // Обратите внимание на "Message"
-            receiverId: req.user.id,
-            isRead: false,
-        });
-
-        res.json({ count });
+        const unreadCount = await getUnreadMessagesCount(req.user.id);
+        res.json({ totalCount: unreadCount });
     } catch (error) {
-        console.error('Error fetching unread messages count:', error);
-        res.status(500).json({ message: 'Could not fetch unread messages count.' });
+        console.error('Ошибка при получении количества непрочитанных сообщений:', error);
+        res.status(500).json({ message: 'Ошибка сервера. Не удалось получить количество сообщений.' });
     }
 });
 
@@ -838,23 +913,88 @@ async function getCallHistory(userId) {
 }
 
 // Пример маршрута для уведомлений
-app.get('/notifications', async (req, res) => {
+// Определение функции получения пользователя
+async function getUserById(userId) {
+    console.log(`Запрос пользователя с ID: ${userId}`);
+    const user = await User.findById(userId);
+    if (!user) {
+        console.log(`Пользователь с ID ${userId} не найден`);
+        return { username: 'Имя пользователя недоступно' };
+    }
+    return { id: user._id, username: user.username };
+}
+
+// В вашем маршруте
+app.get('/notifications', isAuthenticated, async (req, res) => {
     try {
         const incomingCalls = await getIncomingCalls(req.user.id);
-        const missedCalls = await getMissedCalls(req.user.id);
-        const notifications = await getNotifications(req.user.id);
+        console.log(`Входящие вызовы: ${JSON.stringify(incomingCalls)}`);
+        
+        const enrichedIncomingCalls = await Promise.all(incomingCalls.map(async call => {
+            const userId = call.userId?._id; // Используйте опциональную цепочку
+            if (!userId) {
+                console.log('ID пользователя не найден в объекте вызова:', call);
+                return { ...call, user: { username: 'Имя пользователя недоступно' } }; // Убедитесь, что добавляете правильный объект
+            }
+            console.log(`Обработка вызова от пользователя с ID: ${userId}`);
+            const user = await getUserById(userId); // Получите данные о пользователе
+            return { ...call, user }; // Верните объект с вызывающим пользователем
+        }));
 
         res.render('notifications', {
             friendRequests: await getFriendRequests(req.user.id),
-            incomingCalls,
-            missedCalls,
-            notifications
+            incomingCalls: enrichedIncomingCalls,
+            missedCalls: await getMissedCalls(req.user.id),
+            notifications: await getNotifications(req.user.id)
         });
     } catch (error) {
         console.error("Ошибка при получении уведомлений:", error);
         res.status(500).send('Ошибка сервера');
     }
 });
+
+app.get('/api/unread-notifications',isAuthenticated, async (req, res) => {
+    try {
+        // Получение данных о новых запросах в друзья
+        const friendRequests = await FriendRequest.find({ status: 'pending' }); // Найдите ожидающие запросы
+        const totalCount = friendRequests.length;
+
+        return res.json({ totalCount, friendRequests }); // Возвращаем общее количество и сами запросы
+    } catch (error) {
+        console.error('Ошибка получения уведомлений:', error);
+        res.status(500).send('Ошибка на сервере');
+    }
+});
+
+app.get('/api/unread-messages', async (req, res) => {
+    if (!req.user || !req.user.id) {
+        return res.status(403).json({ message: 'Пользователь не аутентифицирован' });
+    }
+
+    const userId = req.user.id;
+
+    try {
+        const unreadCount = await getUnreadMessagesCount(userId);
+        res.json({ totalCount: unreadCount });
+    } catch (error) {
+        console.error('Ошибка:', error);
+        res.status(500).json({ message: 'Ошибка сервера. Не удалось получить количество сообщений.' });
+    }
+});
+
+// Функция для получения количества непрочитанных сообщений
+async function getUnreadMessagesCount(userId) {
+    try {
+        const count = await Message.countDocuments({
+            receiverId: userId,
+            isRead: false,
+        });
+        return count;
+    } catch (error) {
+        console.error('Ошибка при подсчете непрочитанных сообщений:', error);
+        throw error;
+    }
+}
 
 
 app.post('/api/send-friend-request', isAuthenticated, async (req, res) => {

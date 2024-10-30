@@ -69,7 +69,7 @@
 </head>
 <body>
     <h1>Список Друзей</h1>
-
+    
     <div id="search">
         <input type="text" id="searchInput" placeholder="Поиск пользователей...">
     </div>
@@ -81,13 +81,13 @@
     <ul id="sentRequestsList"></ul>
 
     <h2 class="call-history">История Звонков</h2>
-<ul id="callHistoryList">
-    <% calls.forEach(call => { %>
-        <li class="user-card">
-            <span>Звонок с <%= call.withUser.username %>, Дата: <%= new Date(call.callData.createdAt).toLocaleString() %>, Статус: <%= call.status %></span>
-        </li>
-    <% }); %>
-</ul>
+    <ul id="callHistoryList">
+        <% calls.forEach(call => { %>
+            <li class="user-card">
+                <span>Звонок с <%= call.withUser.username %>, Дата: <%= new Date(call.callData.createdAt).toLocaleString() %>, Статус: <%= call.status %></span>
+            </li>
+        <% }); %>
+    </ul>
 
     <div id="callInterface" style="display:none;">
         <h2>Вызов с <span id="callRecipient"></span></h2>
@@ -109,6 +109,7 @@
     <script>
         let currentCallRecipientId = null; 
         let currentStream = null; // Хранит текущий медиа поток
+        let callTimer = null; // Таймер для отслеживания времени звонка
 
         async function loadFriends() {
             try {
@@ -154,38 +155,37 @@
         }
 
         async function loadCallHistory() {
-    try {
-        const response = await fetch('/api/calls');
-        if (!response.ok) {
-            if (response.status === 401) {
-                alert('Вы не авторизованы. Пожалуйста, войдите в систему.');
-                window.location.href = '/login'; // Перенаправить на страницу логина
+            try {
+                const response = await fetch('/api/calls');
+                if (!response.ok) {
+                    if (response.status === 401) {
+                        alert('Вы не авторизованы. Пожалуйста, войдите в систему.');
+                        window.location.href = '/login'; // Перенаправить на страницу логина
+                    }
+                    console.error('Ошибка при загрузке истории звонков:', response.statusText);
+                    return; // Завершаем выполнение функции
+                }
+                const calls = await response.json();
+                const callHistoryList = document.getElementById('callHistoryList');
+                callHistoryList.innerHTML = '';
+
+                if (!Array.isArray(calls)) {
+                    console.error('Ошибка: полученные данные не являются массивом:', calls);
+                    return;
+                }
+
+                calls.forEach(call => {
+                    const listItem = document.createElement('li');
+                    listItem.className = 'user-card';
+                    listItem.innerHTML = `
+                        <span>Звонок с ${call.withUser.username}, Дата: ${new Date(call.createdAt).toLocaleString()}</span>
+                    `;
+                    callHistoryList.appendChild(listItem);
+                });
+            } catch (error) {
+                console.error('Ошибка при загрузке истории звонков:', error);
             }
-            console.error('Ошибка при загрузке истории звонков:', response.statusText);
-            return; // Завершаем выполнение функции
         }
-        const calls = await response.json();
-        const callHistoryList = document.getElementById('callHistoryList');
-        callHistoryList.innerHTML = '';
-
-        // Убедитесь, что данные возвращены в виде массива
-        if (!Array.isArray(calls)) {
-            console.error('Ошибка: полученные данные не являются массивом:', calls);
-            return;
-        }
-
-        calls.forEach(call => {
-            const listItem = document.createElement('li');
-            listItem.className = 'user-card';
-            listItem.innerHTML = `
-                <span>Звонок с ${call.withUser.username}, Дата: ${new Date(call.createdAt).toLocaleString()}</span>
-            `;
-            callHistoryList.appendChild(listItem);
-        });
-    } catch (error) {
-        console.error('Ошибка при загрузке истории звонков:', error);
-    }
-}
 
         async function cancelFriendRequest(requestId) {
             const response = await fetch(`/api/cancel-request/${requestId}`, {
@@ -237,32 +237,60 @@
         }
 
         async function initiateVideoCall(userId) {
-    currentCallRecipientId = userId;
-    document.getElementById('callRecipient').innerText = userId;
-    document.getElementById('callInterface').style.display = 'block';
+            currentCallRecipientId = userId;
+            document.getElementById('callRecipient').innerText = userId;
+            document.getElementById('callInterface').style.display = 'block';
 
-    try {
-        const response = await fetch(`/api/initiate-call`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            // Передаем friendId и callType
-            body: JSON.stringify({ friendId: userId, callType: 'video' })
-        });
+            try {
+                const response = await fetch(`/api/initiate-call`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ friendId: userId, callType: 'video' })
+                });
 
-        if (response.ok) {
-            alert(`Видеозвонок с пользователем ${userId} инициализирован!`);
-            currentStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
-        } else {
-            const errorData = await response.json();
-            throw new Error(`Ошибка при инициации видеозвонка: ${errorData.message || response.statusText}`);
+                if (response.ok) {
+                    alert(`Видеозвонок с пользователем ${userId} инициализирован!`);
+                    currentStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+                    // Запускаем таймер на 5 минут (300000 мс)
+                    callTimer = setTimeout(handleMissedCall, 300000); // 5 минут
+                } else {
+                    const errorData = await response.json();
+                    throw new Error(`Ошибка при инициации видеозвонка: ${errorData.message || response.statusText}`);
+                }
+            } catch (error) {
+                console.error('Ошибка:', error);
+                alert(error.message);
+            }
         }
-    } catch (error) {
-        console.error('Ошибка:', error);
-        alert(error.message);
-    }
-}
+
+        // Функция для обработки пропущенного звонка
+        async function handleMissedCall() {
+            alert(`Звонок с пользователем ${currentCallRecipientId} не был завершен. Он помечен как пропущенный.`);
+            await markAsMissedCall(currentCallRecipientId);
+            currentCallRecipientId = null; 
+            document.getElementById('callInterface').style.display = 'none'; 
+        }
+
+        // Функция для пометки звонка как пропущенного на сервере
+        async function markAsMissedCall(userId) {
+            try {
+                const response = await fetch(`/api/mark-missed-call/${userId}`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ status: 'missed' }) // отправляем статус звонка
+                });
+
+                if (!response.ok) {
+                    console.error('Ошибка при пометке звонка как пропущенного:', response.statusText);
+                }
+            } catch (error) {
+                console.error('Ошибка при пометке звонка:', error);
+            }
+        }
 
         document.getElementById('endCallButton').addEventListener('click', () => {
             alert(`Звонок с пользователем ${currentCallRecipientId} завершен.`);
@@ -270,6 +298,11 @@
 
             if (currentStream) {
                 currentStream.getTracks().forEach(track => track.stop());
+            }
+            
+            if (callTimer) {
+                clearTimeout(callTimer);
+                callTimer = null; // Очищаем таймер
             }
         });
 
