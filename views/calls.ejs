@@ -126,7 +126,7 @@
         <h2>Отправленные запросы</h2>
         <ul id="sentRequestsList"></ul>
 
-        <h2 class="call-history">История Звонков</h2>
+        <h2>История Звонков</h2>
         <ul id="callHistoryList"></ul>
     </section>
 
@@ -151,578 +151,478 @@
     <div id="notificationContainer">
         <div id="notification">
             <span id="notificationMessage"></span>
-            <button onclick="hideNotification()">&times;</button>
+            <button onclick="hideNotification()">×</button>
         </div>
     </div>
 
-    
     <script>
-        let currentUser = null; // Инициализация переменной текущего пользователя
-    let currentCallRecipientId = null;
-    let currentStream = null;
-    let callTimer = null;
-    let peer; // Глобальная переменная для хранения экземпляра Peer
-    let isCallActive = false; // Переменная для определения состояния звонка
+        // Определяем переменные для текущего пользователя и параметров звонка
+        let currentUser = null; 
+        let currentCallRecipientId = null; 
+        let currentStream = null; 
+        let callTimer = null; 
+        let peer; 
+        let isCallActive = false; 
 
-
-    // Загрузка текущего пользователя
-    // Загрузка текущего пользователя
-async function loadCurrentUser() {
-    try {
-        const response = await fetch('http://localhost:5000/api/current-user');
-        if (!response.ok) {
-            throw new Error('Не удалось загрузить текущего пользователя');
+        // Функция для загрузки текущего пользователя
+        async function loadCurrentUser() {
+            try {
+                const response = await fetch('http://localhost:5000/api/current-user'); // Получаем информацию о текущем пользователе
+                if (!response.ok) {
+                    throw new Error('Не удалось загрузить текущего пользователя'); // Обработка ошибок
+                }
+                currentUser = await response.json(); // Присваиваем загруженного пользователя
+                console.log('Текущий пользователь:', currentUser); // Логируем текущего пользователя
+            } catch (error) {
+                console.error(error.message); // Логируем ошибку
+            }
         }
-        currentUser = await response.json(); // Присваиваем результат загрузки
-        console.log('Текущий пользователь:', currentUser);
-    } catch (error) {
-        console.error(error.message);
-    }
-}
 
+        // Функция для принятия входящего звонка
+        function acceptCall(callId) {
+            isCallActive = true; // Устанавливаем статус звонка как активный
+            // Здесь будет логика для принятия звонка
+        }
 
+        // Функция для завершения звонка
+        function endCall() {
+            isCallActive = false; // Завершение звонка
+            // Здесь будет логика для завершения звонка
+        }
 
-function acceptCall(callId) {
-    isCallActive = true; // Звонок активен
-    // Логика для принятия звонка
-}
-
-function endCall() {
-    isCallActive = false; // Завершение звонка
-    // Логика для завершения звонка
-}
-
-
-        // Показывать уведомление
+        // Функция для отображения уведомлений
         function showNotification(message) {
-            const notificationContainer = document.getElementById('notificationContainer');
-            const notificationMessage = document.getElementById('notificationMessage');
+            const notificationContainer = document.getElementById('notificationContainer'); // Получаем контейнер для уведомлений
+            const notificationMessage = document.getElementById('notificationMessage'); // Получаем элемент для сообщения
             
-            notificationMessage.innerText = message;
-            notificationContainer.style.display = 'block';
+            notificationMessage.innerText = message; // Устанавливаем текст уведомления
+            notificationContainer.style.display = 'block'; // Показываем уведомление
             
             setTimeout(() => {
-                hideNotification();
-            }, 5000); // Уведомление исчезнет через 5 секунд
+                hideNotification(); // Скрываем уведомление через 5 секунд
+            }, 5000);
         }
 
+        // Функция для скрытия уведомлений
         function hideNotification() {
-            const notificationContainer = document.getElementById('notificationContainer');
-            notificationContainer.style.display = 'none';
+            const notificationContainer = document.getElementById('notificationContainer'); // Получаем контейнер уведомления
+            notificationContainer.style.display = 'none'; // Скрываем уведомление
         }
 
-        // Загрузка списка друзей
-        // Загрузка списка друзей
-async function loadFriends() {
-    try {
-        const response = await fetch('/api/get-friends');
-        const text = await response.text();
-        console.log(text);
+        // Функция для загрузки списка друзей
+        async function loadFriends() {
+            try {
+                const response = await fetch('/api/get-friends'); // Запрос списка друзей
+                const text = await response.text(); // Получаем текст ответа
+                console.log(text); // Логируем текст
 
-        if (!response.ok) {
-            throw new Error('Ошибка сети: ' + text);
-        }
-        
-        const friendsList = JSON.parse(text);
-        
-        const friendsContainer = document.getElementById('friendsList');
-        friendsContainer.innerHTML = ''; // Очистка текущего списка
+                if (!response.ok) {
+                    throw new Error('Ошибка сети: ' + text); // Обработка ошибок
+                }
 
-        friendsList.forEach(friend => {
-    const listItem = document.createElement('li');
-    listItem.className = 'user-card';
-    listItem.innerHTML = `
-        <span>${friend.username}</span>
-        <button onclick="initiateVideoCall('${friend._id}')">Видеозвонок</button>
-        <button onclick="initiateVoiceCall('${friend._id}')">Голосовой звонок</button>
-    `;
-    friendsContainer.appendChild(listItem);
-});
-    } catch (error) {
-        console.error('Ошибка при загрузке списка друзей:', error);
-    }
-}
+                const friendsList = JSON.parse(text); // Парсим JSON-ответ
 
-// Инициализация голосового звонка
-async function initiateVoiceCall(userId) {
-    if (!currentUser) {
-        console.error('Текущий пользователь не загружен.'); 
-        showNotification('Ошибка: невозможно инициировать звонок, пользователь не загружен.');
-        return;
-    }
+                const friendsContainer = document.getElementById('friendsList'); // Получаем контейнер для друзей
+                friendsContainer.innerHTML = ''; // Очищаем текущий список
 
-    currentCallRecipientId = userId;
-    document.getElementById('callRecipient').innerText = `Голосовой вызов с ${userId}`;
-    document.getElementById('callInterface').style.display = 'block';
-
-    try {
-        // Запрашиваем доступ только к аудио
-        currentStream = await navigator.mediaDevices.getUserMedia({ audio: true });
-        
-        // Сохраняем звонок в базе данных
-        const response = await fetch('/api/calls', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                userId: currentUser._id, // Используем текущего пользователя
-                withUser: userId,
-                status: 'outgoing',
-                callType: 'voice' // Указываем, что это голосовой вызов
-            })
-        });
-
-        if (!response.ok) {
-            throw new Error('Ошибка при сохранении звонка в базе данных: ' + response.statusText);
+                friendsList.forEach(friend => { // Проходим по каждому другу
+                    const listItem = document.createElement('li'); // Создаем элемент списка
+                    listItem.className = 'user-card'; // Устанавливаем класс
+                    listItem.innerHTML = `
+                        <span>${friend.username}</span> 
+                        <button onclick="initiateVideoCall('${friend._id}')">Видеозвонок</button>
+                        <button onclick="initiateVoiceCall('${friend._id}')">Голосовой звонок</button>
+                    `; // Добавляем данные о друге и кнопки для звонков
+                    friendsContainer.appendChild(listItem); // Добавляем элемент в контейнер
+                });
+            } catch (error) {
+                console.error('Ошибка при загрузке списка друзей:', error); // Логируем ошибку
+            }
         }
 
-        showNotification(`Голосовой вызов с пользователем ${userId} инициализирован!`);
-    } catch (error) {
-        console.error('Ошибка:', error);
-        showNotification('Ошибка при инициализации голосового звонка: ' + error.message);
-    }
-}
+        // Функция для инициализации голосового звонка
+        async function initiateVoiceCall(userId) {
+            if (!currentUser) {
+                console.error('Текущий пользователь не загружен.'); 
+                showNotification('Ошибка: невозможно инициировать звонок, пользователь не загружен.');
+                return;
+            }
 
-        // Загрузка отправленных запросов
+            currentCallRecipientId = userId; // Устанавливаем ID получателя
+            document.getElementById('callRecipient').innerText = `Голосовой вызов с ${userId}`; // Устанавливаем получателя в интерфейсе
+            document.getElementById('callInterface').style.display = 'block'; // Показываем интерфейс звонка
+
+            try {
+                currentStream = await navigator.mediaDevices.getUserMedia({ audio: true }); // Запрашиваем доступ к аудио
+                
+                const response = await fetch('/api/calls', { // Сохраняем звонок в базе данных
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        userId: currentUser._id,
+                        withUser: userId,
+                        status: 'outgoing',
+                        callType: 'voice'
+                    })
+                });
+
+                if (!response.ok) {
+                    throw new Error('Ошибка при сохранении звонка в базе данных: ' + response.statusText);
+                }
+
+                showNotification(`Голосовой вызов с пользователем ${userId} инициализирован!`); // Показываем уведомление
+            } catch (error) {
+                console.error('Ошибка:', error); // Логируем ошибку
+                showNotification('Ошибка при инициализации голосового звонка: ' + error.message);
+            }
+        }
+
+        // Функция для загрузки отправленных запросов
         async function loadSentRequests() {
             try {
-                const response = await fetch('/api/get-sent-requests');
-                const requests = await response.json();
-                const sentRequestsList = document.getElementById('sentRequestsList');
-                sentRequestsList.innerHTML = '';
+                const response = await fetch('/api/get-sent-requests'); // Запрос для получения отправленных запросов
+                const requests = await response.json(); // Парсим JSON-ответ
+                const sentRequestsList = document.getElementById('sentRequestsList'); // Получаем контейнер для отправленных запросов
+                sentRequestsList.innerHTML = ''; // Очищаем текущий список
 
-                requests.forEach(request => {
-                    const listItem = document.createElement('li');
-                    listItem.className = 'user-card';
+                requests.forEach(request => { // Проходим по каждому запросу
+                    const listItem = document.createElement('li'); // Создаем элемент списка
+                    listItem.className = 'user-card'; // Устанавливаем класс
                     listItem.innerHTML = `
                         <span>${request.receiver.username} (запрос отправлен)</span>
                         <button onclick="cancelFriendRequest('${request._id}')">Отменить запрос</button>
-                    `;
-                    sentRequestsList.appendChild(listItem);
+                    `; // Добавляем данные о запросе
+                    sentRequestsList.appendChild(listItem); // Добавляем элемент в контейнер
                 });
             } catch (error) {
-                console.error('Ошибка при загрузке отправленных запросов:', error);
+                console.error('Ошибка при загрузке отправленных запросов:', error); // Логируем ошибку
                 showNotification('Ошибка при загрузке отправленных запросов: ' + error.message);
             }
         }
 
-        // Загрузка истории звонков
+        // Функция для загрузки истории звонков
         async function loadCallHistory() {
-    try {
-        const response = await fetch('/api/calls');
-        if (!response.ok) {
-            throw new Error('Ошибка в получении данных');
+            try {
+                const response = await fetch('/api/calls'); // Запрос для получения истории звонков
+                if (!response.ok) {
+                    throw new Error('Ошибка в получении данных');
+                }
+                const calls = await response.json(); // Парсим JSON-ответ
+                console.log('Полученные звонки:', calls); // Логируем данные о звонках
+
+                const callHistoryList = document.getElementById('callHistoryList'); // Получаем контейнер для истории звонков
+                callHistoryList.innerHTML = ''; // Очищаем текущий список
+
+                calls.forEach(call => { // Проходим по каждому звонку
+                    const statusButtons = getStatusButtons(call); // Получаем кнопки статуса звонка
+                    const withUser = call.withUser ? call.withUser.username : 'Неизвестный пользователь'; // Имя пользователя
+                    const createdAt = new Date(call.callData.createdAt); // Дата звонка
+                    const formattedDate = createdAt.toLocaleString(); // Форматируем дату
+
+                    const listItem = document.createElement('li'); // Создаем элемент списка
+                    listItem.className = 'user-card'; // Устанавливаем класс
+                    listItem.innerHTML = `
+                        <span>Звонок с ${withUser}, Дата: ${formattedDate}, Статус: ${call.status || 'неизвестный статус'}</span>
+                        ${statusButtons}
+                    `; // Добавляем данные о звонке
+                    callHistoryList.appendChild(listItem); // Добавляем элемент в контейнер
+                });
+            } catch (error) {
+                console.error('Ошибка при загрузке истории звонков:', error); // Логируем ошибку
+            }
         }
 
-        const calls = await response.json();
-        console.log('Полученные звонки:', calls);
+        // Функция для получения кнопок статуса звонка
+        function getStatusButtons(call) {
+            if (!call || !call.withUser) {
+                console.error('Свойство withUser не определено для звонка:', call); // Логируем ошибку
+                return `<span>Ошибка: пользователя нет</span>`;
+            }
 
-        const callHistoryList = document.getElementById('callHistoryList');
-        callHistoryList.innerHTML = '';
+            const withUser = call.withUser.username; // Имя пользователя, с которым звонок
+            const status = call.status || 'неизвестный статус'; // Статус звонка
+            const peerId = call.withUser._id; // Получаем ID пользователя для перезвона
 
-        calls.forEach(call => {
-            // Используйте getStatusButtons для каждого звонка
-            const statusButtons = getStatusButtons(call);
-            const withUser = call.withUser ? call.withUser.username : 'Неизвестный пользователь';
-            const createdAt = new Date(call.callData.createdAt);
-            const formattedDate = createdAt.toLocaleString();
+            if (status === 'incoming') {
+                return `<button onclick="acceptCall('${call._id}', '${peerId}')">Принять</button>
+                        <button onclick="declineCall('${call._id}')">Отклонить</button>`; // Кнопки для входящего звонка
+            } else {
+                return `<button onclick="makeCall('${peerId}')">Перезвонить</button>`; // Кнопка для перезвона
+            }
+        }
 
-            const listItem = document.createElement('li');
-            listItem.className = 'user-card';
-            listItem.innerHTML = `
-                <span>Звонок с ${withUser}, Дата: ${formattedDate}, Статус: ${call.status || 'неизвестный статус'}</span>
-                ${statusButtons}
-            `;
-            callHistoryList.appendChild(listItem);
-        });
-    } catch (error) {
-        console.error('Ошибка при загрузке истории звонков:', error);
-    }
-}
-
-function getStatusButtons(call) {
-    // Проверяем, есть ли поле withUser
-    if (!call || !call.withUser) {
-        console.error('Свойство withUser не определено для звонка:', call);
-        return `<span>Ошибка: пользователя нет</span>`;
-    }
-
-    const withUser = call.withUser.username; // Теперь безопасно
-    const status = call.status || 'неизвестный статус';
-    const peerId = call.withUser._id; // Получаем peerId для возможности перезвона
-
-    if (status === 'incoming') {
-        return `<button onclick="acceptCall('${call._id}', '${peerId}')">Принять</button>
-                <button onclick="declineCall('${call._id}')">Отклонить</button>`;
-    } else {
-        return `<button onclick="makeCall('${peerId}')">Перезвонить</button>`;
-    }
-}
-
-function makeCall(peerId) {
-    // Логика для совершения исходящего вызова
-    const call = peer.call(peerId, localStream);
-    
-    call.on('stream', remoteStream => {
-        // Воспроизведение удаленного потока
-        const remoteVideoElement = document.getElementById('remoteVideo');
-        remoteVideoElement.srcObject = remoteStream;
-    });
-
-    call.on('error', (error) => {
-        console.error('Ошибка при совершении вызова:', error);
-        alert('Ошибка при попытке перезвонить. Пожалуйста, попробуйте снова.');
-    });
-}
-
-function answerCall(peerId) {
-    // Логика для принятия входящего звонка (если это предусмотрено)
-    const incomingCall = peer.call(peerId, localStream);
-    
-    incomingCall.on('stream', remoteStream => {
-        // Воспроизведение удаленного потока
-        const remoteVideoElement = document.getElementById('remoteVideo');
-        remoteVideoElement.srcObject = remoteStream;
-    });
-
-    incomingCall.on('error', (error) => {
-        console.error('Ошибка при ответе на вызов:', error);
-        alert('Ошибка при попытке ответить на звонок. Пожалуйста, попробуйте снова.');
-    });
-}
-
-function showIncomingCallModal(callData) {
-    // Используем SweetAlert для красивого модального окна.
-    Swal.fire({
-        title: `Входящий вызов от ${callData.callerId}`,
-        text: "Принять?",
-        icon: 'info',
-        showCancelButton: true,
-        confirmButtonText: 'Принять',
-        cancelButtonText: 'Отклонить'
-    }).then((result) => {
-        if (result.isConfirmed) {
-            // Логика принятия звонка
-            const call = peer.call(callData.peerId, localStream);
+        // Функция для совершения исходящего вызова
+        function makeCall(peerId) {
+            const call = peer.call(peerId, currentStream); // Совершение вызова
             
-            call.on('stream', remoteStream => {
-                // Воспроизводите удаленный поток
+            call.on('stream', remoteStream => { // Обработка поступающего потока
+                const remoteVideoElement = document.getElementById('remoteVideo'); // Получаем элемент видео
+                remoteVideoElement.srcObject = remoteStream; // Устанавливаем источник потока
+            });
+
+            call.on('error', (error) => { // Обработка ошибок вызова
+                console.error('Ошибка при совершении вызова:', error);
+                alert('Ошибка при попытке перезвонить. Пожалуйста, попробуйте снова.');
+            });
+        }
+
+        // Функция для ответа на входящий звонок
+        function answerCall(peerId) {
+            const incomingCall = peer.call(peerId, currentStream); // Принятие входящего звонка
+            
+            incomingCall.on('stream', remoteStream => {
+                const remoteVideoElement = document.getElementById('remoteVideo'); // Получаем элемент видео
+                remoteVideoElement.srcObject = remoteStream; // Устанавливаем источник потока
+            });
+
+            incomingCall.on('error', (error) => {
+                console.error('Ошибка при ответе на вызов:', error);
+                alert('Ошибка при попытке ответить на звонок. Пожалуйста, попробуйте снова.');
+            });
+        }
+
+        // Функция для отображения модального окна на входящий звонок
+        function showIncomingCallModal(callData) {
+            Swal.fire({
+                title: `Входящий вызов от ${callData.callerId}`,
+                text: "Принять?",
+                icon: 'info',
+                showCancelButton: true,
+                confirmButtonText: 'Принять',
+                cancelButtonText: 'Отклонить'
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    const call = peer.call(callData.peerId, currentStream); // Логика принятия звонка
+                    call.on('stream', remoteStream => {
+                        const remoteVideoElement = document.getElementById('remoteVideo');
+                        remoteVideoElement.srcObject = remoteStream; // Воспроизводим удаленный поток
+                    });
+
+                    call.on('error', (error) => {
+                        console.error('Call error:', error);
+                        alert('Ошибка при установлении вызова. Пожалуйста, попробуйте снова.');
+                    });
+                } else {
+                    socket.emit('call-declined', callData.callId); // Отказ от звонка
+                }
+            });
+        }
+
+        // Слушаем событие входящего звонка
+        socket.on('incoming-call', (callData) => {
+            if (isCallActive) {
+                showError("Вы уже находитесь в звонке."); // Лимитация на принятие второго звонка
+                return;
+            }
+            showIncomingCallNotification(callData); // Отображаем уведомление о вызове
+        });
+
+        // Функция для принятия звонка
+        function acceptCall(callId, peerId) {
+            const call = peer.call(peerId, currentStream); // Используем текущий поток медиа
+            
+            call.on('stream', (remoteStream) => {
                 const remoteVideoElement = document.getElementById('remoteVideo');
-                remoteVideoElement.srcObject = remoteStream;
+                remoteVideoElement.srcObject = remoteStream; // Устанавливаем источник удаленного потока
             });
 
             call.on('error', (error) => {
-                console.error('Call error:', error);
-                // Обработка ошибок вызова
+                console.error('Ошибка при принятии вызова:', error);
                 alert('Ошибка при установлении вызова. Пожалуйста, попробуйте снова.');
             });
-        } else {
-            // Отказ от звонка
-            socket.emit('call-declined', callData.callId);
         }
-    });
-}
 
-// Слушаем событие incoming-call
-// Слушаем событие incoming-call
-
-
-
-function acceptCall(callId, peerId) {
-    const call = peer.call(peerId, currentStream); // currentStream - это ваш поток медиа
-
-    call.on('stream', (remoteStream) => {
-        const remoteVideoElement = document.getElementById('remoteVideo');
-        remoteVideoElement.srcObject = remoteStream;
-    });
-
-    call.on('error', (error) => {
-        console.error('Ошибка при принятии вызова:', error);
-        alert('Ошибка при установлении вызова. Пожалуйста, попробуйте снова.');
-    });
-}
-
-async function declineCall(callId) {
-    // Уведомить сервер об отклонении вызова
-    await markCallAsCompleted(callId); // Вы можете хранить статусы в базе данных
-    console.log('Вызов отклонен');
-}
-
-
-
-function clearNotifications() {
-    // Очистка уведомлений из контейнера
-    const notificationContainer = document.getElementById('notificationContainer');
-    notificationContainer.innerHTML = ''; // Очищаем контейнер
-}
-
-
-        async function displayCalls(calls) {
-    if (calls.length === 0) {
-        console.log("Нет доступных вызовов.");
-        return;
-    }
-
-    calls.forEach(call => {
-        const callDate = new Date(call.callData.createdAt);
-        const withUser = call.withUser ? call.withUser.username : 'Неизвестный пользователь';
-
-        if (!isNaN(callDate.getTime())) { // Проверяем, что это допустимая дата
-            console.log(`Звонок с ${withUser}, Дата: ${callDate.toLocaleString()}`);
-        } else {
-            console.error(`Invalid Date for call created at: ${call.callData.createdAt}`);
+        async function declineCall(callId) {
+            await markCallAsCompleted(callId); // Уведомляем сервер об отклонении вызова
+            console.log('Вызов отклонен'); // Логируем отклонение звонка
         }
-    });
-}
 
-        // Поиск пользователей
+        // Функция для пометки звонка как завершенного
+        async function markCallAsCompleted(callId) {
+            try {
+                const response = await fetch('/api/mark-call-completed', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ callId: callId }) // Отправляем ID завершенного звонка
+                });
+
+                if (!response.ok) {
+                    throw new Error('Ошибка при обновлении статуса звонка: ' + response.statusText);
+                }
+            } catch (error) {
+                console.error('Ошибка при пометке звонка:', error);
+                showNotification('Ошибка при пометке звонка: ' + error.message);
+            }
+        }
+
+        // Функция для обработки пропущенного звонка
+        async function handleMissedCall() {
+            showNotification(`Звонок с пользователем ${currentCallRecipientId} не был завершен. Он помечен как пропущенный.`);
+            await markAsMissedCall(currentCallRecipientId); // Помечаем звонок как пропущенный
+            resetCallInterface(); // Сбрасываем интерфейс звонка
+        }
+
+        // Функция для пометки звонка как пропущенного
+        async function markAsMissedCall(callId) {
+            try {
+                const response = await fetch(`/api/mark-missed-call/${callId}`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ status: 'missed' }) // Отправляем статус пропущенного вызова
+                });
+
+                if (!response.ok) {
+                    console.error('Ошибка при пометке звонка как пропущенного:', response.statusText);
+                } else {
+                    console.log('Статус звонка обновлён на "missed".');
+                }
+            } catch (error) {
+                console.error('Ошибка при пометке звонка:', error);
+            }
+        }
+
+        // Функция для поиска пользователей
         async function searchUsers() {
-            const searchTerm = document.getElementById('searchInput').value.trim();
+            const searchTerm = document.getElementById('searchInput').value.trim(); // Получаем текст из поля поиска
             if (searchTerm === '') {
-                document.getElementById('searchResults').innerHTML = '';
-                return;
+                document.getElementById('searchResults').innerHTML = ''; // Очищаем результаты
+                return; // Выход, если поле пустое
             }
             try {
-                const response = await fetch(`/api/search-users?term=${searchTerm}`);
-                const users = await response.json();
-                const resultsList = document.getElementById('searchResults');
-                resultsList.innerHTML = '';
+                const response = await fetch(`/api/search-users?term=${searchTerm}`); // Запрос на поиск
+                const users = await response.json(); // Парсим ответ
+                const resultsList = document.getElementById('searchResults'); // Получаем контейнер для результатов
+                resultsList.innerHTML = ''; // Очищаем предыдущие результаты
 
                 if (users.length > 0) {
-                    users.forEach(user => {
-                        const resultItem = document.createElement('li');
-                        resultItem.className = 'user-card';
+                    users.forEach(user => { // Проходим по найденным пользователям
+                        const resultItem = document.createElement('li'); // Создаем элемент списка
+                        resultItem.className = 'user-card'; // Устанавливаем класс
                         resultItem.innerHTML = `
                             <span>${user.username}</span>
                             <button onclick="initiateVideoCall('${user._id}')">Видеозвонок</button>
-                        `;
-                        resultsList.appendChild(resultItem);
+                        `; // Добавляем данные пользователя
+                        resultsList.appendChild(resultItem); // Добавляем элемент в контейнер
                     });
                 } else {
-                    resultsList.innerHTML = '<li class="user-card">Пользователи не найдены.</li>';
+                    resultsList.innerHTML = '<li class="user-card">Пользователи не найдены.</li>'; // Сообщение при отсутствии пользователей
                 }
             } catch (error) {
-                console.error('Ошибка при поиске пользователей:', error);
+                console.error('Ошибка при поиске пользователей:', error); // Логируем ошибку
                 showNotification('Ошибка при поиске пользователей: ' + error.message);
             }
         }
 
-        // Инициализация видеозвонка
-        // Инициализация видеозвонка
-// Инициализация видеозвонка
-// Инициализация видеозвонка
-async function initiateVideoCall(userId) {
-    if (!currentUser) {
-        console.error('Текущий пользователь не загружен.'); 
-        showNotification('Ошибка: невозможно инициировать звонок, пользователь не загружен.');
-        return;
-    }
+        // Функция для инициализации видеозвонка
+        async function initiateVideoCall(userId) {
+            if (!currentUser) {
+                console.error('Текущий пользователь не загружен.'); 
+                showNotification('Ошибка: невозможно инициировать звонок, пользователь не загружен.');
+                return;
+            }
 
-    const friendUser = await getUserById(userId); // Допустим, вы добавите функцию для получения пользователя по ID
-    if (!friendUser) {
-        console.error('Пользователь не найден.');
-        showNotification('Ошибка: пользователь не найден.');
-        return;
-    }
+            const friendUser = await getUserById(userId); // Получаем информацию о пользователе
+            if (!friendUser) {
+                console.error('Пользователь не найден.'); 
+                showNotification('Ошибка: пользователь не найден.');
+                return;
+            }
 
-    currentCallRecipientId = userId;
+            currentCallRecipientId = userId; // Устанавливаем ID получателя
+            document.getElementById('callRecipient').innerText = `Пользователь ${friendUser.username}`; // Устанавливаем получателя в интерфейсе
+            document.getElementById('callInterface').style.display = 'block'; // Показываем интерфейс звонка
 
-    // Устанавливаем имя пользователя, а не ID
-    document.getElementById('callRecipient').innerText = `Пользователь ${friendUser.username}`;
-    document.getElementById('callInterface').style.display = 'block';
-
-    // Сброс предыдущего потока, если он существует
-    if (currentStream) {
-        currentStream.getTracks().forEach(track => track.stop());
-        currentStream = null;
-    }
-
-    // Сброс таймера
-    if (callTimer) {
-        clearTimeout(callTimer);
-        callTimer = null;
-    }
-
-    try {
-        // Запрос доступа к камере и микрофону
-        currentStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
-        callTimer = setTimeout(handleMissedCall, 300000);
-
-        // Сохранение звонка в базе данных
-        const response = await fetch('/api/calls', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                userId: currentUser._id, // Используем текущего пользователя
-                withUser: userId,
-                status: 'outgoing'
-            })
-        });
-
-        if (!response.ok) {
-            throw new Error('Ошибка при сохранении звонка в базе данных: ' + response.statusText);
-        }
-
-        showNotification(`Видеозвонок с пользователем ${friendUser.username} инициализирован!`);
-    } catch (error) {
-        console.error('Ошибка:', error);
-        if (error.name === 'NotAllowedError') {
-            showNotification('Ошибка: доступ к камере и микрофону запрещён.');
-        } else if (error.name === 'NotFoundError') {
-            showNotification('Ошибка: одно из устройств не найдено.');
-        } else {
-            showNotification('Ошибка при инициализации видеозвонка: ' + error.message);
-        }
-    }
-}
-
-// Функция для получения пользователя по ID (пример)
-async function getUserById(userId) {
-    try {
-        const response = await fetch(`/api/get-user/${userId}`);
-        if (!response.ok) {
-            throw new Error('Ошибка при получении пользователя: ' + response.statusText);
-        }
-        return await response.json();
-    } catch (error) {
-        console.error(error);
-        return null;
-    }
-}
-
-        
-
-        // Обработка пропущенного звонка
-        async function handleMissedCall() {
-            showNotification(`Звонок с пользователем ${currentCallRecipientId} не был завершен. Он помечен как пропущенный.`);
-            await markAsMissedCall(currentCallRecipientId);
-            resetCallInterface();
-        }
-
-        // Пометка звонка как пропущенного
-        // Маркировать вызов как пропущенный
-async function markAsMissedCall(callId) {
-    try {
-        const response = await fetch(`/api/mark-missed-call/${callId}`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({ status: 'missed' })
-        });
-        if (!response.ok) {
-            console.error('Ошибка при пометке звонка как пропущенного:', response.statusText);
-        } else {
-            console.log('Статус звонка обновлён на "missed".');
-        }
-    } catch (error) {
-        console.error('Ошибка при пометке звонка:', error);
-    }
-}
-
-function showIncomingCallNotification(callData) {
-    // Создайте элемент уведомления (можно использовать библиотеку для уведомлений на экран)
-    const notification = document.createElement('div');
-    notification.className = 'incoming-call-notification';
-    notification.innerText = `Входящий звонок от ${callData.callerUsername}.`;
-
-    const acceptButton = document.createElement('button');
-    acceptButton.innerText = 'Принять';
-    acceptButton.onclick = () => {
-        socket.emit('accept-call', callData.callId); // Передайте ID вызова
-        closeNotification(notification);
-    };
-
-    const declineButton = document.createElement('button');
-    declineButton.innerText = 'Отклонить';
-    declineButton.onclick = () => {
-        socket.emit('decline-call', callData.callId); // Передайте ID вызова
-        closeNotification(notification);
-    };
-
-    notification.appendChild(acceptButton);
-    notification.appendChild(declineButton);
-    document.body.appendChild(notification);
-}
-
-function closeNotification(notification) {
-    document.body.removeChild(notification);
-}
-
-socket.on('initiate-call', async ({ userId, callType }) => {
-    const existingCall = await Call.findOne({ userId: userId, status: 'incoming' });
-    
-    if (existingCall) {
-        console.log('Звонок уже ожидается от этого пользователя.');
-        return; // Не инициируем новый вызов, если уже есть ожидающий
-    }
-
-    const newCall = new Call({
-        userId: socket.request.user._id,
-        withUser: userId,
-        callData: { type: callType, createdAt: new Date() },
-        status: 'incoming'
-    });
-
-    try {
-        const savedCall = await newCall.save();
-        io.to(userId).emit('incoming-call', { callerId: socket.request.user._id, callDetails: savedCall });
-    } catch (error) {
-        console.error('Ошибка при сохранении вызова:', error);
-    }
-});
-
-        // Функция для пометки звонка как завершенного
-async function markCallAsCompleted(callId) {
-    try {
-        const response = await fetch('/api/mark-call-completed', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({ callId: callId })
-        });
-
-        if (!response.ok) {
-            throw new Error('Ошибка при обновлении статуса звонка: ' + response.statusText);
-        }
-    } catch (error) {
-        console.error('Ошибка при пометке звонка:', error);
-        showNotification('Ошибка при пометке звонка: ' + error.message);
-    }
-}
-
-       // Завершение звонка
-document.getElementById('endCallButton').addEventListener('click', async () => {
-    showNotification(`Звонок с пользователем ${currentCallRecipientId} завершен.`);
-    await markCallAsCompleted(currentCallRecipientId);
-    resetCallInterface();
-});
-
-        // Сброс интерфейса звонка
-        function resetCallInterface() {
-            document.getElementById('callInterface').style.display = 'none'; 
-
-            if (currentStream) {
+            if (currentStream) { // Если уже есть поток, останавливаем его
                 currentStream.getTracks().forEach(track => track.stop());
+                currentStream = null; // Обнуляем поток
             }
 
             if (callTimer) {
-                clearTimeout(callTimer);
+                clearTimeout(callTimer); // Очищаем таймер
+                callTimer = null; 
+            }
+
+            try {
+                currentStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true }); // Запрашиваем доступ к камере и микрофону
+                callTimer = setTimeout(handleMissedCall, 300000); // Устанавливаем таймер на 5 минут
+
+                const response = await fetch('/api/calls', { // Сохраняем звонок в базе данных
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        userId: currentUser._id,
+                        withUser: userId,
+                        status: 'outgoing'
+                    })
+                });
+
+                if (!response.ok) {
+                    throw new Error('Ошибка при сохранении звонка в базе данных: ' + response.statusText);
+                }
+
+                showNotification(`Видеозвонок с пользователем ${friendUser.username} инициализирован!`); // Показываем уведомление
+            } catch (error) {
+                console.error('Ошибка:', error); // Логируем ошибку
+                if (error.name === 'NotAllowedError') {
+                    showNotification('Ошибка: доступ к камере и микрофону запрещён.');
+                } else if (error.name === 'NotFoundError') {
+                    showNotification('Ошибка: одно из устройств не найдено.');
+                } else {
+                    showNotification('Ошибка при инициализации видеозвонка: ' + error.message);
+                }
+            }
+        }
+
+        // Функция для получения пользователя по его ID
+        async function getUserById(userId) {
+            try {
+                const response = await fetch(`/api/get-user/${userId}`); // Запрос для получения пользователя
+                if (!response.ok) {
+                    throw new Error('Ошибка при получении пользователя: ' + response.statusText);
+                }
+                return await response.json(); // Возвращаем данные о пользователе
+            } catch (error) {
+                console.error(error); // Логируем ошибку
+                return null; // Возвращаем null в случае ошибки
+            }
+        }
+
+        // Функция для сброса интерфейса звонка
+        function resetCallInterface() {
+            document.getElementById('callInterface').style.display = 'none'; // Скрываем интерфейс вызова 
+
+            if (currentStream) {
+                currentStream.getTracks().forEach(track => track.stop()); // Останавливаем все треки потока
+            }
+
+            if (callTimer) {
+                clearTimeout(callTimer); // Очищаем таймер
                 callTimer = null; 
             }
 
             currentCallRecipientId = null; // Сброс ID текущего звонка
         }
 
+        // Обработка клика по кнопке завершения звонка
+        document.getElementById('endCallButton').addEventListener('click', async () => {
+            showNotification(`Звонок с пользователем ${currentCallRecipientId} завершен.`); // Уведомляем о завершении звонка
+            await markCallAsCompleted(currentCallRecipientId); // Помечаем звонок как завершенный
+            resetCallInterface(); // Сбрасываем интерфейс
+        });
+
         // Отключение микрофона
         document.getElementById('muteButton').addEventListener('change', (event) => {
-            if (currentStream) {
+            if (currentStream) { // Если поток существует
                 currentStream.getAudioTracks().forEach(track => {
-                    track.enabled = !event.target.checked;
+                    track.enabled = !event.target.checked; // Включаем/выключаем аудиотрек
                 });
             }
         });
@@ -731,76 +631,65 @@ document.getElementById('endCallButton').addEventListener('click', async () => {
         document.getElementById('cameraButton').addEventListener('change', (event) => {
             if (currentStream) {
                 currentStream.getVideoTracks().forEach(track => {
-                    track.enabled = !event.target.checked;
+                    track.enabled = !event.target.checked; // Включаем/выключаем видеотрек
                 });
             }
         });
 
+        // Обработчик события при загрузке документа
         document.addEventListener('DOMContentLoaded', () => {
-    const endCallButton = document.getElementById('endCallButton');
-    const muteButton = document.getElementById('muteButton');
-    const cameraButton = document.getElementById('cameraButton');
+            const endCallButton = document.getElementById('endCallButton');
+            const muteButton = document.getElementById('muteButton');
+            const cameraButton = document.getElementById('cameraButton');
 
-    if (endCallButton) {
-        endCallButton.addEventListener('click', async () => {
-            // Ваша логика завершения звонка
-        });
-    } else {
-        console.error('endCallButton не найден в DOM');
-    }
+            if (endCallButton) {
+                endCallButton.addEventListener('click', async () => {
+                    // Логика завершения звонка
+                });
+            } else {
+                console.error('endCallButton не найден в DOM'); // Логируем ошибку, если кнопка не найдена
+            }
 
-    if (muteButton) {
-        muteButton.addEventListener('change', (event) => {
-            // Логика отключения микрофона
-        });
-    }
+            if (muteButton) {
+                muteButton.addEventListener('change', (event) => {
+                    // Логика отключения микрофона
+                });
+            }
 
-    if (cameraButton) {
-        cameraButton.addEventListener('change', (event) => {
-            // Логика отключения камеры
+            if (cameraButton) {
+                cameraButton.addEventListener('change', (event) => {
+                    // Логика отключения камеры
+                });
+            }
         });
-    }
-});
 
         // Загрузка данных при загрузке страницы
-        // Загрузка данных при загрузке страницы
-window.onload = async () => {
-    await loadCurrentUser();
-    await loadFriends();
-    await loadCallHistory();
-    
-    // Инициализация экземпляра Peer
-    peer = new Peer(); 
-   
-    // Слушаем входящие звонки
-    socket.on('incoming-call', (callData) => {
-    if (isCallActive) {
-        // Не можете принимать звонки, если уже идет один
-        showError("Вы уже находитесь в звонке.");
-        return;
-    }
+        window.onload = async () => {
+            await loadCurrentUser(); // Загружаем текущего пользователя
+            await loadFriends(); // Загружаем список друзей
+            await loadCallHistory(); // Загружаем историю звонков
+            
+            peer = new Peer(); // Инициализация экземпляра Peer
 
-    showIncomingCallNotification(callData);
-});
+            // Слушаем входящие звонки
+            socket.on('incoming-call', (callData) => {
+                if (isCallActive) {
+                    showError("Вы уже находитесь в звонке."); // Ошибка, если уже в звонке
+                    return; // Выход
+                }
+                showIncomingCallNotification(callData); // Показываем уведомление о входящем звонке
+            });
 
-    // Обработка входящих вызовов от Peer
-    peer.on('call', function(call) {
-        // Здесь вы можете обрабатывать входящий вызов Peer
-        const remoteStream = new MediaStream();
-        call.answer(currentStream); // отвечаем на звонок с текущим потоком
-        call.on('stream', function(remoteStream) {
-            const remoteVideoElement = document.getElementById('remoteVideo');
-            remoteVideoElement.srcObject = remoteStream;
-        });
-    });
-};
+            // Обработка входящих вызовов от Peer
+            peer.on('call', function(call) {
+                call.answer(currentStream); // Ответ на звонок с текущим потоком
 
-// Обработка принятия звонка
-function acceptCall(callId, peerId) {
-    const call = peer.call(peerId, currentStream); // Используем глобальную переменную peer
-    // Ваш код для обработки вызовов
-}
-
+                call.on('stream', function(remoteStream) {
+                    const remoteVideoElement = document.getElementById('remoteVideo'); // Получаем элемент видео
+                    remoteVideoElement.srcObject = remoteStream; // Устанавливаем источник потока
+                });
+            });
+        };
     </script>
 </body>
 </html>

@@ -44,7 +44,7 @@ const Post = require('./models/Post');
 // Импортируем Passport
 const passport = require('passport');
 const LocalStrategy = require('passport-local').Strategy;
-const cors = require('cors'); // Импортируем cors
+
 
 
 // В начале вашего server.js или в соответствующем файле
@@ -121,12 +121,7 @@ app.use(express.static(path.join(__dirname, 'public')));
 
 // Настройка CORS
 
-const corsOptions = {
-    origin: 'https://social-network1.onrender.com', // Укажите разрешенный домен
-    methods: ['GET', 'POST', 'OPTIONS'], // Разрешенные методы
-    credentials: true // Если необходимо
-};
-app.use(cors(corsOptions));
+
 
 
 // Настраиваем стратегию локальной аутентификации
