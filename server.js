@@ -44,7 +44,7 @@ const Post = require('./models/Post');
 // Импортируем Passport
 const passport = require('passport');
 const LocalStrategy = require('passport-local').Strategy;
-
+const cors = require('cors'); // Импортируем cors
 
 
 // В начале вашего server.js или в соответствующем файле
@@ -119,6 +119,14 @@ app.use(passport.session()); // Подключаем сессии
 
 app.use(express.static(path.join(__dirname, 'public')));
 
+// Настройка CORS
+
+const corsOptions = {
+    origin: 'https://social-network1.onrender.com', // Укажите разрешенный домен
+    methods: ['GET', 'POST', 'OPTIONS'], // Разрешенные методы
+    credentials: true // Если необходимо
+};
+app.use(cors(corsOptions));
 
 
 // Настраиваем стратегию локальной аутентификации
@@ -153,28 +161,7 @@ passport.use(new LocalStrategy(
     }
 ));
 
-// Сериализация пользователя в сессию
 
-// Обратите внимание, что ваш код для маршрутов должен быть ниже этих middleware
-
-// Обработчик для маршрута чата
-router.get('/chat/:userId', (req, res) => {
-    const userId = req.params.userId;
-
-    // здесь должен быть код для поиска чата с указанным userId
-    // например, получение сообщений из базы данных
-
-    // Пример:
-    Message.find({ userId: userId })
-        .then(messages => {
-            res.render('chat', { messages, userId });
-        })
-        .catch(err => {
-            res.status(500).send("Ошибка получения сообщений");
-        });
-});
-
-module.exports = router;
 
 function isAuthenticated(req, res, next) {
     if (req.isAuthenticated()) {
