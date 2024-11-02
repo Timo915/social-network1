@@ -69,7 +69,8 @@
         
         <button type="submit">Создать групповой чат</button>
     </form>
-
+    <script src="/socket.io/socket.io.js"></script>
+    <script src="/js/callManager.js"></script>
     <script>
         const selectedFriends = new Set(); 
         const creatorId = '<%= user._id %>'; // Получите ID текущего авторизованного пользователя с сервера

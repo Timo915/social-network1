@@ -234,6 +234,8 @@ app.get('/home', isAuthenticated, async (req, res) => {
     }
 });
 
+
+
 // Главная страница, чтобы перенаправить на /home
 app.get('/', (req, res) => {
     res.redirect('/home');
@@ -277,12 +279,54 @@ app.post('/register', async (req, res) => {
 app.post('/login', passport.authenticate('local', {
     successRedirect: '/home',
     failureRedirect: '/login',
-    failureFlash: true, // Включает использование flash-сообщений
-}));
+    failureFlash: true,
+}), (req, res) => {
+    req.session.user = req.user; // устанавливаем текущего пользователя в сессии
+    res.redirect('/home');
+});
 
 // Socket.IO
 io.on('connection', (socket) => {
     console.log('A user connected');
+
+    socket.on('initiate-voice-call', async ({ userId }) => {
+        if (!userId || !socket.request.user._id) {
+            console.error('Недостаточно данных для инициации голосового вызова:', { userId });
+            return;
+        }
+        
+        const newCall = new Call({
+            userId: socket.request.user._id,
+            withUser: userId,
+            callData: {
+                type: 'voice',
+                createdAt: new Date()
+            },
+            status: 'incoming'
+        });
+    
+        try {
+            const savedCall = await newCall.save();
+            console.log('Голосовой вызов инициирован:', savedCall);
+            io.to(userId).emit('incoming-voice-call', {
+                callerId: socket.request.user._id,
+                callDetails: savedCall
+            });
+        } catch (error) {
+            console.error('Ошибка при сохранении голосового вызова:', error);
+        }
+    });
+
+    // Событие для входящего вызова
+    socket.on('call', (data) => {
+        // Отправка уведомления всем клиентам, кроме инициатора
+        socket.broadcast.emit('incoming-call', { callerId: data.callerId, callId: data.callId });
+    });
+
+    // Пример регистрации пользователя
+    socket.on('register', (userId) => {
+        users[userId] = socket.id;
+    });
 
     socket.on('connect', () => {
         console.log('Соединение установлено с сервером.');
@@ -345,18 +389,38 @@ io.on('connection', (socket) => {
         socket.to(call.withUser).emit('call-ended');
     });
 
-
-    socket.on('incoming-call', (data) => {
-        // Это событие должно добавлять новый вызов в список на фронтенде
-        const callElement = document.createElement('li');
-        callElement.innerHTML = `
-            <strong>Входящий вызов от: ${data.caller.username}</strong>
-            <button onclick="acceptCall('${data.caller.id}')">Принять</button>
-            <button onclick="rejectCall('${data.caller.id}')">Отклонить</button>
-        `;
-        document.getElementById('incoming-calls').insertBefore(callElement, document.getElementById('incoming-calls').firstChild);
+    socket.on('initiate-call', (data) => {
+        const { friendId } = data;
+        socket.broadcast.emit('incoming-call', { callerId: socket.id });
     });
+
+
+    // Пример обработчика входящего звонка
+    
+    
+
 });
+
+async function initiateVideoCall(userId) {
+    try {
+        if (!userId) {
+            throw new Error('Необходимо указать идентификатор пользователя для видеозвонка.');
+        }
+        currentCallRecipientId = userId;
+        document.getElementById('callRecipient').innerText = `Пользователь ${userId}`;
+        document.getElementById('callInterface').style.display = 'block';
+        
+        currentStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+        socket.emit('initiate-call', { userId }); // Инициируем звонок через сокет
+
+        callTimer = setTimeout(handleMissedCall, 300000);  // 5 минут ожидания
+        alert(`Видеозвонок с пользователем ${userId} инициализирован!`);
+
+    } catch (error) {
+        console.error('Ошибка инициации видеозвонка:', error);
+        alert(error.message); // Покажите ошибку пользователю
+    }
+}
 
 app.get('/incoming-calls', async (req, res) => {
     try {
@@ -386,18 +450,52 @@ app.get('/incoming-calls', async (req, res) => {
     }
 });
 
+app.get('/api/calls', async (req, res) => {
+    try {
+        const calls = await Call.find({ userId: req.user._id }) // Ваш оригинальный запрос
+            .populate('withUser', 'username'); // Пополнение информации о пользователе
+
+        return res.json(calls); // Отправка всех звонков
+    } catch (error) {
+        console.error('Ошибка при извлечении звонков:', error);
+        return res.status(500).json({ message: 'Ошибка при извлечении звонков' });
+    }
+});
+
 app.get('/calls', async (req, res) => {
     if (!req.isAuthenticated()) {
         return res.redirect('/login');
     }
 
     try {
+        console.log('Current user ID:', req.user.id);
+
+        // Получаем все звонки текущего пользователя
         const calls = await Call.find({ userId: req.user.id }).populate('withUser');
-        const users = await User.find();
-        res.render('calls', { calls, users });
+        console.log('Calls found:', calls);
+
+        // Получаем пользователя текущего пользователя из модели User
+        const user = await User.findById(req.user.id).populate('friends', 'username'); // или добавьте другие поля, которые вам нужны
+        console.log('User found:', user);
+
+        // Список друзей будет в user.friends
+        const friendsArray = user.friends;
+
+        res.render('calls', { calls, friends: friendsArray });
     } catch (error) {
         console.error('Ошибка при загрузке звонков:', error);
         res.status(500).send('Ошибка сервера');
+    }
+});
+
+app.get('/api/calls', async (req, res) => {
+    try {
+        // Ваш код для получения данных о звонках
+        const calls = await Call.find(); // пример использования Mongoose
+        res.status(200).json(calls);
+    } catch (error) {
+        console.error('Ошибка при получении звонков:', error);
+        res.status(500).json({ message: 'Ошибка сервера' });
     }
 });
 
@@ -459,6 +557,81 @@ app.post('/api/accept-call/:callId', async (req, res) => {
         console.error('Ошибка при принятии звонка:', error);
         res.status(500).send('Ошибка сервера');
     }
+});
+
+// Маршрут для сохранения звонка
+app.post('/api/calls', async (req, res) => {
+    const { userId, withUser } = req.body; // Получаем userId (звонивший) и withUser (кому звонят)
+    
+    try {
+        // Создание исходящего звонка
+        const outgoingCall = new Call({
+            userId: userId,
+            withUser: withUser,
+            status: 'outgoing',
+            callData: { createdAt: new Date() }
+        });
+        
+        await outgoingCall.save();
+        
+        // Создание входящего звонка
+        const incomingCall = new Call({
+            userId: withUser, // ID получателя звонка
+            withUser: userId, // ID звонящего
+            status: 'incoming',
+            callData: { createdAt: new Date() }
+        });
+        
+        await incomingCall.save();
+
+        return res.status(201).json({ message: 'Calls recorded successfully' });
+    } catch (error) {
+        console.error('Error saving calls:', error);
+        return res.status(500).json({ message: 'Error saving calls' });
+    }
+});
+
+app.post('/api/mark-call-completed', async (req, res) => {
+    const { callId } = req.body; // expect the callId to be sent in the request body
+    // Логика для обновления статуса звонка
+    try {
+        // Предполагается использование вашей БД, чтобы обновить звонок
+        const updatedCall = await Call.findByIdAndUpdate(callId, { status: 'completed' }, { new: true });
+        return res.json(updatedCall);
+    } catch (error) {
+        console.error('Ошибка при обновлении статуса звонка:', error);
+        return res.status(500).json({ message: 'Ошибка при обновлении статуса звонка' });
+    }
+});
+
+app.get('/api/get-user/:userId', async (req, res) => {
+    const { userId } = req.params;
+    try {
+        const user = await User.findById(userId); // Предполагается использование вашей БД
+        if (!user) {
+            return res.status(404).json({ message: 'Пользователь не найден.' });
+        }
+        return res.json(user);
+    } catch (error) {
+        console.error('Ошибка при получении пользователя:', error);
+        return res.status(500).json({ message: 'Ошибка сервера.' });
+    }
+});
+
+// Определение функции
+function getCurrentUserFromSession(req) {
+    return req.session.user; // Замените в зависимости от вашей логики
+}
+
+// Ваши маршруты
+app.get('/api/current-user',isAuthenticated, (req, res) => {
+    console.log('Текущие данные сессии:', req.session);
+    console.log('Текущий пользователь:', req.user);
+    
+    if (!req.user) {
+        return res.status(404).json({ message: 'Пользователь не найден' });
+    }
+    res.json(req.user); 
 });
 // Обработчик для создания постов
 
@@ -884,7 +1057,24 @@ async function getNotifications(userId) {
     }
 }
 
+async function getFriends(req, res) {
+    const userId = req.user._id;
 
+    try {
+        const friendships = await Friendship.find({
+            $or: [{ user1: userId }, { user2: userId }]
+        }).populate('user1 user2', 'username');
+
+        const friends = friendships.map(friendship => {
+            return friendship.user1.equals(userId) ? friendship.user2 : friendship.user1;
+        });
+
+        res.json(friends);
+    } catch (error) {
+        console.error('Ошибка при получении списка друзей:', error);
+        res.status(500).json({ message: 'Ошибка сервера' });
+    }
+}
 
 // Подключите этот обработчик перед запуском сервера
 // Пример функции для получения запросов в друзья
@@ -906,10 +1096,20 @@ async function getMissedCalls(userId) {
     return missedCalls;
 }
 
-async function getCallHistory(userId) {
-    return await Call.find({
-        $or: [{ userId: userId }, { withUser: userId }]
-    }).populate('userId', 'username').populate('withUser', 'username'); // Получаем имя пользователей
+async function getCalls(req, res) {
+    try {
+        const incomingCalls = await getIncomingCalls(); // или как у вас это реализовано
+        const missedCalls = await getMissedCalls();
+        
+        // Объедините входящие и пропущенные вызовы в один массив
+        const calls = [...incomingCalls, ...missedCalls];
+
+        // Рендерите шаблон и передавайте данные
+        res.render('notifications', { calls });
+    } catch (error) {
+        console.error('Error fetching calls:', error);
+        res.status(500).send('Internal Server Error');
+    }
 }
 
 // Пример маршрута для уведомлений
@@ -929,16 +1129,16 @@ app.get('/notifications', isAuthenticated, async (req, res) => {
     try {
         const incomingCalls = await getIncomingCalls(req.user.id);
         console.log(`Входящие вызовы: ${JSON.stringify(incomingCalls)}`);
-        
+
         const enrichedIncomingCalls = await Promise.all(incomingCalls.map(async call => {
             const userId = call.userId?._id; // Используйте опциональную цепочку
             if (!userId) {
                 console.log('ID пользователя не найден в объекте вызова:', call);
-                return { ...call, user: { username: 'Имя пользователя недоступно' } }; // Убедитесь, что добавляете правильный объект
+                return { ...call, caller: { username: 'Имя пользователя недоступно', id: null } }; // Не забудьте id
             }
             console.log(`Обработка вызова от пользователя с ID: ${userId}`);
             const user = await getUserById(userId); // Получите данные о пользователе
-            return { ...call, user }; // Верните объект с вызывающим пользователем
+            return { ...call, caller: user }; // Верните объект с вызывающим пользователем
         }));
 
         res.render('notifications', {
@@ -1102,15 +1302,18 @@ app.delete('/api/cancel-request/:requestId', isAuthenticated, async (req, res) =
 });
 
 // Маршрут для получения списка друзей текущего пользователя
+// Пример реализации endpoint в Node.js с использованием Express
 app.get('/api/get-friends', isAuthenticated, async (req, res) => {
-    const userId = req.user._id;
-
     try {
-        const user = await User.findById(userId).populate('friends', 'username'); // Предполагается, что вы сохраняете id друзей
-        res.status(200).json(user.friends);
+        const user = await User.findById(req.user.id).populate('friends', 'username');
+        if (!user) {
+            return res.status(404).json({ message: 'Пользователь не найден' });
+        }
+
+        res.json(user.friends); // Возвращаем массив друзей
     } catch (error) {
         console.error('Ошибка при получении друзей:', error);
-        res.status(500).json({ message: 'Ошибка сервера' });
+        res.status(500).json({ message: 'Ошибка на сервере' });
     }
 });
 

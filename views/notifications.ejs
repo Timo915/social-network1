@@ -64,25 +64,26 @@
     <% } %>
 </ul>
 
+
 <h2>Входящие звонки:</h2>
-<ul id="incoming-calls">
+<ul>
     <% if (incomingCalls && incomingCalls.length > 0) { %>
         <% incomingCalls.forEach(call => { %>
-            <li id="call-<%= call._id %>">
+            <li>
                 <span>
-                    Входящий вызов от: 
+                    Входящий вызов от:
                     <strong>
-                        <%= call.user.username %>
+                        <%= call.caller.username || 'Имя пользователя недоступно' %>
                     </strong>
                 </span>
                 <span class="call-buttons">
-                    <button class="accept-button" data-caller-id="<%= call.user.id %>">Принять</button>
-                    <button class="reject-button" data-caller-id="<%= call.user.id %>" <%= !call.user.id ? 'disabled' : '' %>>Отклонить</button>
+                    <button onclick="answerCall('<%= call._id %>')">Ответить</button>
+                    <button onclick="rejectCall('<%= call._id %>')">Отклонить</button>
                 </span>
             </li>
         <% }); %>
     <% } else { %>
-        <li>Нет входящих вызовов.</li>
+        <li>Нет входящих звонков.</li>
     <% } %>
 </ul>
 
@@ -107,17 +108,13 @@
     </script>
 
     <h2>Пропущенные вызовы:</h2>
-    <ul id="missed-calls">
-        <% if (missedCalls && missedCalls.length > 0) { %>
-            <% missedCalls.forEach(call => { %>
-                <li>
-                    <strong>Пропущенный вызов от: <%= call.caller.username %></strong>
-                    <button onclick="callBack('<%= call.caller.id %>')">Перезвонить</button>
-                </li>
-            <% }); %>
-        <% } else { %>
-            <li>Нет пропущенных вызовов.</li>
-        <% } %>
+    <ul>
+        <% incomingCalls.forEach(call => { %>
+            <li>
+                <strong>Входящий вызов от: <%= call.caller.username %></strong>
+                <button onclick="callBack('<%= call.caller.id %>')">Перезвонить</button>
+            </li>
+        <% }); %>
     </ul>
 
     <h2>Лайки:</h2>
@@ -162,7 +159,8 @@
             <li>Нет новых постов.</li>
         <% } %>
     </ul>
-
+    <script src="/socket.io/socket.io.js"></script>
+    <script src="/js/callManager.js"></script>
     <script>
         // Установка обработчиков события для всех кнопок "Принять"
         document.querySelectorAll('.accept-button').forEach(button => {
