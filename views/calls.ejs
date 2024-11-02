@@ -638,30 +638,15 @@
 
         // Обработчик события при загрузке документа
         document.addEventListener('DOMContentLoaded', () => {
-            const endCallButton = document.getElementById('endCallButton');
-            const muteButton = document.getElementById('muteButton');
-            const cameraButton = document.getElementById('cameraButton');
-
-            if (endCallButton) {
-                endCallButton.addEventListener('click', async () => {
-                    // Логика завершения звонка
-                });
-            } else {
-                console.error('endCallButton не найден в DOM'); // Логируем ошибку, если кнопка не найдена
-            }
-
-            if (muteButton) {
-                muteButton.addEventListener('change', (event) => {
-                    // Логика отключения микрофона
-                });
-            }
-
-            if (cameraButton) {
-                cameraButton.addEventListener('change', (event) => {
-                    // Логика отключения камеры
-                });
-            }
+    const endCallButton = document.getElementById('endCallButton');
+    if (endCallButton) {
+        endCallButton.addEventListener('click', async () => {
+            // Ваш код завершения звонка
         });
+    } else {
+        console.error('endCallButton не найден в DOM');
+    }
+});
 
         // Загрузка данных при загрузке страницы
         window.onload = async () => {
