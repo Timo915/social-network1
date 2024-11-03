@@ -13,7 +13,7 @@
         }
 
         header {
-            background-color: #4CAF50; /* Цвет заголовка */
+            background-color: #007bff; /* Цвет заголовка */
             color: white;
             padding: 15px;
             text-align: center;
@@ -21,7 +21,7 @@
 
         nav {
             margin: 0;
-            background-color: #333; /* Цвет навигации */
+            background-color: #0056b3; /* Цвет навигации */
         }
 
         nav a {
@@ -33,7 +33,7 @@
         }
 
         nav a:hover {
-            background-color: #575757; /* Цвет навигации при наведении */
+            background-color: #004494; /* Цвет навигации при наведении */
         }
 
         main {
@@ -68,7 +68,7 @@
         }
 
         textarea:focus {
-            border-color: #4CAF50; /* Цвет рамки при фокусе */
+            border-color: #007bff; /* Цвет рамки при фокусе */
             outline: none; /* Убираем стандартный обвод */
         }
 
@@ -77,7 +77,7 @@
         }
 
         button {
-            background-color: #4CAF50; /* Цвет кнопки */
+            background-color: #007bff; /* Цвет кнопки */
             color: white;
             border: none;
             border-radius: 4px;
@@ -88,13 +88,18 @@
         }
 
         button:hover {
-            background-color: #45a049; /* Цвет кнопки при наведении */
+            background-color: #0056b3; /* Цвет кнопки при наведении */
         }
 
         .error {
             color: red;
             margin-top: 15px;
             font-weight: bold; /* Жирный шрифт для ошибок */
+        }
+
+        #emoji-button {
+            background-color: #007bff; /* Цвет кнопки эмодзи */
+            color: white;
         }
     </style>
 </head>
@@ -130,6 +135,7 @@
         <p class="error"><%= error %></p>
     <% } %>
 </main>
+
 <script src="/socket.io/socket.io.js"></script>
 <script src="/js/callManager.js"></script>
 

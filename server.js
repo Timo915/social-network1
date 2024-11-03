@@ -9,6 +9,8 @@ const bcrypt = require('bcryptjs'); // Используйте bcryptjs вмес�
 const http = require('http');
 const socketIo = require('socket.io');
 
+const fs = require('fs');
+
 const router = express.Router();
 const User = require('./models/User'); // Импортируйте только один раз
 const Call = require('./models/Call'); 
@@ -23,16 +25,37 @@ const GroupMessage = require('./models/GroupMessage'); // Замените на 
 const { protect } = require('./middleware/authMiddleware'); // Добавьте эту строку в начало вашего файла server.js
 const multer = require('multer');
 
+// Настройка multer для сохранения загрузок
 const storage = multer.diskStorage({
-    destination: (req, file, cb) => {
-        cb(null, 'uploads/'); // Убедитесь, что эта папка существует
+    destination: function (req, file, cb) {
+        cb(null, path.join(__dirname, 'profile/uploads')); // Замените путь на свой
     },
-    filename: (req, file, cb) => {
-        cb(null, Date.now() + path.extname(file.originalname)); // Уникальное имя файла
+    filename: function (req, file, cb) {
+        // Переименовываем файл, чтобы избежать дублирования
+        cb(null, Date.now() + '-' + file.originalname);
     }
 });
 
-const upload = multer({ storage: storage });
+
+
+
+
+
+const upload = multer({ 
+    storage,
+    limits: { fileSize: 5 * 1024 * 1024 }, // Ограничиваем размер файла до 5 МБ
+    fileFilter: (req, file, cb) => {
+        // Проверяем тип файла
+        const filetypes = /jpeg|jpg|png|gif/;
+        const mimetype = filetypes.test(file.mimetype);
+        const extname = filetypes.test(path.extname(file.originalname).toLowerCase());
+
+        if (mimetype && extname) {
+            return cb(null, true);
+        }
+        cb('Ошибка: Файл должен быть изображения (jpeg, jpg, png, gif)');
+    }
+});
 
 const Comment = require('./models/Comment'); // Путь может различаться в зависимости от вашей структуры файлов
 const Like = require('./models/Like'); // Путь может отличаться
@@ -56,6 +79,12 @@ const PORT = process.env.PORT || 5000;
 // Создание сервера HTTP
 const server = http.createServer(app);
 const io = socketIo(server); // Инициализация Socket.IO
+
+
+
+// Определение статической папки для загрузок
+app.use('/profile/uploads', express.static(path.join(__dirname, '/profile/uploads')));
+
 passport.serializeUser((user, done) => {
     done(null, user.id);
 });
@@ -78,6 +107,9 @@ app.use(session({
         secure: false
     }
 }));
+
+
+
 // Также можно добавить middleware для flash-сообщений
 app.use(flash());
 // Вы также можете настроить переменные для отображения flash-сообщений
@@ -88,7 +120,15 @@ app.use((req, res, next) => {
 });
 // Подключение вашего роутера
 
-
+// Endpoint для загрузки изображений
+// Обработчик для загрузки изображений
+app.post('/upload', upload.single('image'), (req, res) => {
+    if (!req.file) {
+        return res.status(400).send('Ошибка: Файл не был загружен.');
+    }
+    const filePath = `uploads/${req.file.filename}`; // Сохраним относительный путь
+    res.send({ path: filePath });
+});
 
 
 
@@ -118,6 +158,11 @@ app.use(passport.initialize()); // Подключаем Passport
 app.use(passport.session()); // Подключаем сессии
 
 app.use(express.static(path.join(__dirname, 'public')));
+
+
+
+
+// Обслуживаем директорию uploads
 
 // Настройка CORS
 
@@ -164,6 +209,34 @@ function isAuthenticated(req, res, next) {
     }
     res.redirect('/login'); // Если нет, перенаправляем на страницу логина
 }
+
+app.get('/images', (req, res) => {
+    // Здесь вы можете вернуть массив файлов или другие данные из базы данных
+    res.send('Сюда можно добавить логику получения изображений из базы данных.');
+});
+
+// Пример функции для получения файлов
+app.get('/post/:id',isAuthenticated, async (req, res) => {
+    const postId = req.params.id;
+    
+    try {
+        // Получение поста и его комментариев с заполнением данных пользователей
+        const post = await Post.findById(postId).populate('comments').exec();
+
+        const comments = await Comment.find({ postId: postId })
+            .populate('userId')  // Заполнение данных о пользователе
+            .exec();
+
+        res.render('postDetail', {
+            post: post,
+            comments: comments,
+        });
+    } catch (error) {
+        console.error('Ошибка при получении поста:', error);
+        res.status(500).send('Ошибка сервера. Пожалуйста, попробуйте позже.');
+    }
+});
+
 
 app.get('/styles.css', (req, res) => {
     res.sendFile(path.join(__dirname, 'public/styles.css')); // Убедитесь, что путь к файлу правильный
@@ -619,34 +692,40 @@ app.get('/api/current-user',isAuthenticated, (req, res) => {
 
 
 // Страница профиля
-app.get('/profile/:id', async (req, res) => {
+app.get('/profile/:id', isAuthenticated, async (req, res) => {
+    const targetUserId = req.params.id; // Извлекаем ID пользователя из параметров запроса
+
     try {
-        const targetUserId = req.params.id;
+        // Получаем профиль пользователя и его друзей
         const userProfile = await User.findById(targetUserId).populate('friends').exec();
         
+        // Если пользователь не найден, отправляем 404
         if (!userProfile) {
             return res.status(404).send('Пользователь не найден.');
         }
 
-        // Получаем текущего пользователя (если аутентифицирован)
-        const currentUser = req.user || null; // Обратите внимание, что вы используете это для передачи
+        // Определяем текущего пользователя (если аутентифицирован)
+        const currentUser = req.user || null;
 
-        // Проверка друг ли это и был ли отправлен запрос на дружбу
-        const isFriend = currentUser && userProfile.friends.includes(currentUser._id);
-        const isRequestSent = currentUser && currentUser.friendRequests.includes(targetUserId);
+        // Проверяем, являются ли они друзьями и был ли отправлен запрос на дружбу
+        const isFriend = currentUser ? userProfile.friends.includes(currentUser._id) : false;
+        const isRequestSent = currentUser ? currentUser.friendRequests.includes(targetUserId) : false;
 
-        // Получение постов пользователя
+        // Получение постов пользователя, сортированных по дате создания
         const posts = await Post.find({ userId: targetUserId })
             .sort({ createdAt: -1 })
+            .populate({
+                path: 'comments.userId', // Вложенное население для извлечения данных пользователя для каждого комментария
+                model: 'User' // Обратите внимание, чтобы указать модель
+            })
             .populate('likes')
-            .populate('comments')
             .exec();
 
-        // Рендеринг страницы профиля
+        // Рендерим страницу профиля с необходимыми данными
         res.render('profile', {
             user: userProfile,
-            isAuthenticated: req.isAuthenticated(),
-            currentUser: currentUser, // Передаем текущего пользователя
+            isAuthenticated: !!currentUser,
+            currentUser: currentUser,
             posts: posts,
             errorMessage: '',
             isFriend: isFriend,
@@ -875,33 +954,137 @@ app.get('/api/unread-messages',isAuthenticated, async (req, res) => {
 // Создание поста через POST-запрос
 // Создание поста через POST-запрос
 // Создание поста через POST-запрос
+// Функция для очистки пути к файлу
+function cleanFilePath(filePath) {
+    const parts = filePath.split('\\'); // Разделяем путь по обратным слэшам
+    const uploadsIndex = parts.indexOf('uploads'); // Ищем индекс папки 'uploads'
+
+    // Если папка 'uploads' найдена, возвращаем путь от нее
+    if (uploadsIndex !== -1) {
+        return parts.slice(uploadsIndex).join('\\'); // Возвращаем оставшуюся часть пути
+    }
+
+    return filePath; // Если 'uploads' не найден, возвращаем оригинальный путь
+}
+
+app.get('/file/:filename', (req, res) => {
+    const filename = req.params.filename;
+
+    // Определите полный путь к файлу
+    const filePath = path.join(__dirname, 'profile/uploads', filename);
+
+    // Попробуйте отправить файл пользователю
+    res.sendFile(filePath, (err) => {
+        if (err) {
+            console.error('Ошибка при отправке файла:', err);
+            res.status(err.status).end();
+        } else {
+            console.log('Файл отправлен:', filename);
+        }
+    });
+});
+
+async function updateFilePaths() {
+    try {
+        const posts = await Post.find(); // Получаем все посты
+
+        for (const post of posts) {
+            if (post.files.length) {
+                // Проверяем, нужно ли изменять путь
+                const updatedFiles = post.files.map(filePath => {
+                    // Проверяем, если путь содержит полный URL
+                    if (filePath.startsWith('http://localhost:5000/')) {
+                        return filePath.replace('http://localhost:5000/', ''); // Оставляем только относительный путь
+                    } else if (filePath.startsWith('C:\\')) {
+                        return filePath.replace('C:\\social-network\\profile\\', ''); // Обрабатываем путь, если он полный
+                    }
+                    return filePath; // Возвращаем путь как есть, если изменений не требуется
+                });
+
+                // Если пути изменились, обновляем пост
+                if (JSON.stringify(updatedFiles) !== JSON.stringify(post.files)) {
+                    post.files = updatedFiles;
+                    await post.save(); // Сохраняем изменения
+                    console.log('Обновлен пост с ID:', post._id);
+                }
+            }
+        }
+
+        console.log('Обновление путей к файлам завершено.');
+    } catch (error) {
+        console.error('Ошибка при обновлении путей к файлам:', error);
+    }
+}
+
+// Вызываем функцию
+updateFilePaths();
+// Обработчик маршрута для создания поста
+// Обработчик маршрута для создания поста
 app.post('/api/create-post', upload.array('files'), isAuthenticated, async (req, res) => {
     try {
         const { content } = req.body;
-        const userId = req.user._id; // Берем ID текущего пользователя
-        const files = req.files ? req.files.map(file => file.path) : []; // Получаем массив путей к загруженным файлам
 
-        // Проверка контента
-        if (!content && files.length === 0) {
-            return res.status(400).send('Необходимо указать либо контент, либо загрузить файл.');
+        if (!req.user) {
+            return res.status(401).send('Пользователь не аутентифицирован');
         }
 
-        // Создание нового поста
+        const userId = req.user._id;
+        const files = req.files ? req.files.map(file => `/uploads/${file.filename}`) : []; // Сохраняем только относительные пути
+
         const newPost = new Post({
             userId,
             content,
-            files: files || [],
+            files,
             likes: [],
-            dislikes: [],
+            views: 0,
+            shares: 0,
+            comments: [],
         });
 
-        await newPost.save(); // Сохранение поста в базе данных
-        console.log('Пост успешно создан:', newPost); // Логирование созданного поста
+        await newPost.save();
+        console.log('Пост успешно создан:', newPost);
 
-        res.status(201).json(newPost); // Возвращаем созданный пост в формате JSON
+        // Вызываем функцию updateFilePaths для обновления путей, если нужно
+        await updateFilePaths();
+
+        // Возвращаем созданный пост
+        res.status(201).json(newPost);
     } catch (error) {
         console.error('Ошибка создания поста:', error);
         res.status(500).send('Ошибка при создании поста');
+    }
+});
+
+function getRelativeFilePath(filePath) {
+    // Путь к папке с изображениями
+    const uploadsDir = path.join(__dirname, 'uploads'); // Убедитесь, что путь к папке uploads правильный
+    // Если путь начинается с "C:\social-network\profile\uploads\", преобразуем его в относительный
+    if (filePath.startsWith('C:\\social-network\\profile\\uploads\\')) {
+        return filePath.replace(/C:\\social-network\\profile\\/, 'uploads/').replace(/\\/g, '/');
+    }
+    return filePath.replace(/\\/g, '/');
+}
+
+// При отправке постов на клиент
+// Пример функции для формирования данных постов
+app.get('/api/posts', async (req, res) => {
+    try {
+        // Обновляем пути к файлам перед выгрузкой постов
+        await updateFilePaths();
+
+        // Получаем посты из базы данных
+        const posts = await Post.find();
+
+        // Формируем полный URL для файлов
+        const formattedPosts = posts.map(post => ({
+            ...post.toObject(), // Конвертируем Mongoose документ в обычный объект
+            files: post.files.map(file => `${req.protocol}://${req.get('host')}/uploads/${file}`)
+        }));
+
+        res.json(formattedPosts);
+    } catch (error) {
+        console.error('Ошибка при получении постов:', error);
+        res.status(500).send('Ошибка при получении постов');
     }
 });
 
@@ -930,7 +1113,7 @@ app.get('/get-posts', isAuthenticated, async (req, res) => {
 app.post('/posts', upload.array('files'), async (req, res) => {
     try {
         const { content } = req.body;
-        const files = req.files.map(file => file.path); // Получаем массив путей к загруженным файлам
+        const files = req.files.map(file => file.path);
 
         const newPost = new Post({
             userId: req.user._id,
@@ -939,10 +1122,111 @@ app.post('/posts', upload.array('files'), async (req, res) => {
         });
 
         await newPost.save();
-        res.status(201).json(newPost);
+
+        // Сохранение сообщения в сессии
+        req.session.successMessage = 'Пост успешно создан!';
+
+        // Перенаправление на профиль
+        res.redirect(`/profile/${req.user._id}`); // Правильный путь для перенаправления
     } catch (error) {
         console.error('Ошибка при создании поста:', error);
         res.status(500).send('Ошибка сервера.');
+    }
+});
+
+// Обработка лайка поста
+// Обработка лайка поста
+// Увеличить счетчик лайков
+app.post('/posts/:id/like', (req, res) => {
+    const postId = req.params.id;
+    // Здесь вы должны добавить логику для добавления лайка текущему пользователю
+    
+    Post.findByIdAndUpdate(postId, { $inc: { likes: 1 } }, { new: true })
+        .then(post => {
+            res.json({ success: true, newLikeCount: post.likes.length });
+        })
+        .catch(err => {
+            console.error(err);
+            res.status(500).json({ success: false });
+        });
+});
+
+// Увеличить счетчик репостов
+app.post('/posts/:id/share', (req, res) => {
+    const postId = req.params.id;
+    
+    Post.findByIdAndUpdate(postId, { $inc: { shares: 1 } }, { new: true })
+        .then(post => {
+            res.json({ success: true, newShareCount: post.shares });
+        })
+        .catch(err => {
+            console.error(err);
+            res.status(500).json({ success: false });
+        });
+});
+
+// Обработка пересылки поста
+// Обработка репостов
+app.post('/api/share-post/:postId', async (req, res) => {
+    const postId = req.params.postId;
+
+    try {
+        const post = await Post.findByIdAndUpdate(postId, { $inc: { shares: 1 } }, { new: true });
+        res.json(post); // Возвращаем обновленный пост
+    } catch (error) {
+        res.status(500).send('Ошибка при пересылке поста.');
+    }
+});
+
+app.post('/comments/like/:id',isAuthenticated, async (req, res) => {
+    try {
+        const commentId = req.params.id;
+        const comment = await Comment.findById(commentId);
+        
+        if (!comment) {
+            return res.status(404).json({ message: 'Комментарий не найден.' });
+        }
+
+        comment.likes += 1; // Увеличиваем счетчик лайков
+        await comment.save();
+
+        res.json({ message: 'Комментарий лайкнут!', likes: comment.likes });
+    } catch (error) {
+        res.status(500).json({ message: 'Ошибка при лайке комментария.', error: error.message });
+    }
+});
+
+app.post('/comments/reply/:id',isAuthenticated, async (req, res) => {
+    try {
+        const commentId = req.params.id;
+        const { userId, replyText } = req.body; // Вы ожидаете, что userId и текст ответа передаются в теле запроса
+
+        const comment = await Comment.findById(commentId);
+        
+        if (!comment) {
+            return res.status(404).json({ message: 'Комментарий не найден.' });
+        }
+
+        // Добавляем ответ к комментариям
+        comment.replies.push({ userId, replyText });
+        await comment.save();
+
+        res.json({ message: 'Ответ добавлен!', replies: comment.replies });
+    } catch (error) {
+        res.status(500).json({ message: 'Ошибка при добавлении ответа.', error: error.message });
+    }
+});
+
+// Обработка просмотра поста
+// Обработка просмотров поста
+app.post('/api/view-post/:postId', async (req, res) => {
+    const postId = req.params.postId;
+
+    try {
+        const post = await Post.findByIdAndUpdate(postId, { $inc: { views: 1 } }, { new: true });
+        res.json(post); // Возвращаем обновленный пост
+    } catch (error) {
+        res.status(500).send('Ошибка при обновлении количества просмотров поста.');
     }
 });
 
@@ -1340,14 +1624,21 @@ app.post('/api/comments/:postId', async (req, res) => {
     const { content } = req.body;
 
     try {
-        const newComment = { content, userId: req.user._id }; // Сохраните идентификатор пользователя (текущего)
-        
-        // Можно хранить комментарии в модели Post
+        const userId = req.user._id; // Получаем ID текущего пользователя
+        const user = await User.findById(userId); // Находим пользователя по ID
+
+        const newComment = {
+            content,
+            userId,
+            username: user.username // Сохраняем имя пользователя в комментарии
+        };
+
+        // Сохраняем новый комментарий в пост
         const post = await Post.findById(postId);
         post.comments.push(newComment);
         await post.save();
 
-        res.status(201).json(newComment); // Возвращаем комментарий с его данными
+        res.status(201).json(newComment); // Возвращаем новый комментарий с данными автора
     } catch (error) {
         console.error('Ошибка при добавлении комментария:', error);
         res.status(500).json({ message: 'Ошибка сервера.' });

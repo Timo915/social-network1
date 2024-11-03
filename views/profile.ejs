@@ -5,7 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Профиль пользователя - <%= user.username %></title>
     <link rel="stylesheet" href="/styles.css">
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <style>
+        /* Основные стили */
         body {
             font-family: Arial, sans-serif;
             margin: 0;
@@ -82,6 +84,7 @@
             padding: 15px;
             border-radius: 5px;
             box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+            position: relative;
         }
         .post-actions {
             display: flex;
@@ -101,10 +104,11 @@
         .post-actions button:hover {
             background-color: #0056b3;
         }
-        video, img {
+        img {
             max-width: 100%;
             border-radius: 5px;
             margin: 10px 0;
+            cursor: pointer;
         }
         footer {
             text-align: center;
@@ -113,6 +117,44 @@
             color: #777;
             background-color: #f1f1f1;
             border-top: 1px solid #ccc;
+        }
+        .comment-author {
+            font-weight: bold;
+            color: #007bff;
+        }
+
+        /* Модальное окно для изображения */
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            overflow: auto;
+            background-color: rgba(0,0,0,0.9);
+        }
+        .modal-content {
+            margin: auto;
+            display: block;
+            max-width: 80%;
+        }
+        .close {
+            position: absolute;
+            top: 15px;
+            right: 35px;
+            color: #fff;
+            font-size: 40px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: 0.3s;
+        }
+        .close:hover,
+        .close:focus {
+            color: #bbb;
+            text-decoration: none;
+            cursor: pointer;
         }
     </style>
 </head>
@@ -137,8 +179,12 @@
                 <h2><%= user.name %></h2>
                 <p><strong>Email:</strong> <%= user.email %></p>
                 <div class="user-actions">
-                    <button id="addFriendBtn" onclick="addFriend('<%= user._id %>')">Добавить в друзья</button>
-                    <button onclick="window.location.href='/messages/<%= user._id %>'">Написать сообщение</button>
+                    <% if (currentUser && currentUser._id !== user._id) { %>
+                        <button id="addFriendBtn" onclick="addFriend('<%= user._id %>')">Добавить в друзья</button>
+                        <button onclick="window.location.href='/messages/<%= user._id %>'">Написать сообщение</button>
+                    <% } else if (currentUser && currentUser._id === user._id) { %>
+                        <p>Это ваш профиль. Вы не можете добавить себя в друзья и написать себе сообщение.</p>
+                    <% } %>
                 </div>
             </div>
         </div>
@@ -149,119 +195,246 @@
                 <% posts.forEach(post => { %>
                     <li class="post-card">
                         <p><strong><%= post.content %></strong></p>
-                        <% if (post.imageUrl) { %>
-                            <img src="<%= post.imageUrl %>" alt="Изображение поста">
+                        
+                        <% if (post.files && post.files.length > 0) { %>
+                            <img src="<%= post.files[0] %>" alt="Image description" class="post-image" onclick="openImage(this.src)" />
+                            <p>
+                                <a href="<%= post.files[0] %>" download>Скачать изображение</a>
+                            </p>
+                        <% } else { %>
+                            <p>Изображения нет. <a href="/create-post">Создайте пост, чтобы добавить изображения.</a></p>
                         <% } %>
-                        <% if (post.videoUrl) { %>
-                            <video controls>
-                                <source src="<%= post.videoUrl %>" type="video/mp4">
-                                Ваш браузер не поддерживает видео.
-                            </video>
-                        <% } %>
-                        <p>Создан: <%= new Date(post.createdAt).toLocaleString() %></p>
+        
                         <div class="post-actions">
-                            <button onclick="likePost('<%= post._id %>')">👍 Лайк</button>
-                            <button onclick="sharePost('<%= post._id %>')">🔗 Переслать</button>
-                            <button onclick="commentPost('<%= post._id %>')">💬 Комментировать</button>
+                            <span class="likes">
+                                <button class="like-button" data-id="<%= post._id %>" onclick="likePost('<%= post._id %>')">
+                                    <span role="img" aria-label="like">👍</span> <span class="like-count"><%= post.likes.length %></span>
+                                </button>
+                            </span>
+                            <span class="views">
+                                <span role="img" aria-label="views">👁️</span> <span class="view-count"><%= post.views %></span>
+                            </span>
+                            <span class="shares">
+                                <button class="share-button" data-id="<%= post._id %>" onclick="sharePost('<%= post._id %>')">
+                                    <span role="img" aria-label="share">📤</span> <span class="share-count"><%= post.shares %></span>
+                                </button>
+                            </span>
+                            <span class="comments">
+                                <button class="comment-button" data-id="<%= post._id %>" onclick="commentPost('<%= post._id %>')">
+                                    <span role="img" aria-label="comment">💬</span> <span class="comment-count"><%= post.comments.length %></span>
+                                </button>
+                            </span>
                         </div>
+                    
+                        <h4>Последние комментарии:</h4>
+                        <ul>
+                            <% if (post.comments && post.comments.length > 0) { %>
+                                <% post.comments.forEach(comment => { %>
+                                    <li>
+                                        <strong><a href="/profile/<%= comment.userId._id %>"><%= comment.userId.username %></a>:</strong>
+                                        <%= comment.content %>
+                                        <button class="like-button" data-comment-id="<%= comment._id %>">👍 Лайк</button>
+                                        <button class="reply-button" data-comment-id="<%= comment._id %>">Ответить</button>
+                                        <div class="reply-form" id="reply-form-<%= comment._id %>" style="display: none;">
+                                            <textarea placeholder="Ваш ответ..."></textarea>
+                                            <button class="submit-reply" data-comment-id="<%= comment._id %>">Отправить</button>
+                                        </div>
+                                    </li>
+                                <% }); %>
+                            <% } else { %>
+                                <li>Нет комментариев для отображения.</li>
+                            <% } %>
+                        </ul>
                     </li>
                 <% }) %>
             <% } else { %>
                 <li>Нет постов у пользователя.</li>
             <% } %>
         </ul>
-    </div>
 
-    <footer>
-        <p>&copy; 2023 Ваш Ресурс</p>
-    </footer>
+        <!-- Модальное окно для изображения -->
+        <div id="imageModal" class="modal" onclick="closeImage()">
+            <span class="close" onclick="closeImage()">&times;</span>
+            <img class="modal-content" id="modalImage" />
+        </div>
+
+        <footer>
+            <p>© 2023 Ваш Ресурс</p>
+        </footer>
+
+        
+
     <script src="/socket.io/socket.io.js"></script>
     <script src="/js/callManager.js"></script>
     <script>
-        // Получение статуса дружбы при загрузке страницы
+fetch('http://localhost:5000/api/posts')
+    .then(response => response.json())
+    .then(posts => {
+        posts.forEach(post => {
+            // Отображаем контент поста
+            console.log(post.content);
+
+            // Отображаем изображения, если они есть
+            post.files.forEach(file => {
+                const imgElement = document.createElement('img');
+                imgElement.src = file; // Здесь file - это полный URL
+                document.body.appendChild(imgElement); // Или вставьте в нужный контейнер
+            });
+        });
+    })
+    .catch(error => console.error('Ошибка:', error));
+
+        // Функция открытия изображения в модальном окне
+        function openImage(src) {
+            const modal = document.getElementById("imageModal");
+            const modalImg = document.getElementById("modalImage");
+            modal.style.display = "block";
+            modalImg.src = src;
+        }
+
+        // Функция закрытия модального окна
+        function closeImage() {
+            const modal = document.getElementById("imageModal");
+            modal.style.display = "none";
+        }
+
+        // Функция лайка поста
+        function likePost(postId) {
+    fetch(`/api/like-post/${postId}`, { method: 'POST' })
+        .then(response => {
+            if (!response.ok) {
+                throw new Error('Сеть ответа не OK.');
+            }
+            return response.json();
+        })
+        .then(data => {
+            alert('Пост понравился!');
+            const likeCountElement = document.querySelector(`.like-button[data-id="${postId}"] .like-count`);
+            likeCountElement.textContent = parseInt(likeCountElement.textContent) + 1;
+        })
+        .catch(error => {
+            console.error('Ошибка:', error);
+            alert('Ошибка при лайке поста: ' + error.message);
+        });
+}
+
+        // Функция для репоста поста
+        function sharePost(postId) {
+            alert(`Пост ${postId} переслан!`);
+            const shareCountElement = document.querySelector(`.share-button[data-id="${postId}"] .share-count`);
+            shareCountElement.textContent = parseInt(shareCountElement.textContent) + 1;
+        }
+
+        // Функция для добавления комментария
+        function commentPost(postId) {
+    const comment = prompt("Введите ваш комментарий:");
+    if (comment) {
+        // Получите имя текущего пользователя
+        const userName = '<%= currentUser.name %>'; // Предполагается, что currentUser содержит информацию о текущем пользователе
+        fetch(`/api/comments/${postId}`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ content: comment, author: userName }) 
+        })
+        .then(response => {
+            if (response.ok) {
+                alert('Комментарий добавлен!');
+                const commentCountElement = document.querySelector(`.comment-button[data-id="${postId}"] .comment-count`);
+                commentCountElement.textContent = parseInt(commentCountElement.textContent) + 1;
+            } else {
+                alert('Ошибка при добавлении комментария.');
+            }
+        });
+    }
+}
+
+        // Проверка статуса дружбы при загрузке
         document.addEventListener('DOMContentLoaded', () => {
             const userId = '<%= user._id %>';
             const button = document.getElementById('addFriendBtn');
 
-            // Запрашиваем статус дружбы
-            fetch(`/api/friend-status/${userId}`)
-                .then(response => response.json())
-                .then(data => {
-                    if (data.status === 'friend') {
-                        button.textContent = 'У вас в друзьях';
-                        button.disabled = true; // Делаем кнопку недоступной
-                    } else if (data.status === 'pending') {
-                        button.textContent = 'Запрос отправлен';
-                        button.disabled = true; // Делаем кнопку недоступной
-                    }
-                })
-                .catch(error => console.error('Ошибка при получении статуса дружбы:', error));
+            if (button) {
+                fetch(`/api/friend-status/${userId}`)
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.status === 'friend') {
+                            button.textContent = 'У вас в друзьях';
+                            button.disabled = true; 
+                        } else if (data.status === 'pending') {
+                            button.textContent = 'Запрос отправлен';
+                            button.disabled = true; 
+                        }
+                    })
+                    .catch(error => console.error('Ошибка при получении статуса дружбы:', error));
+            }
         });
 
-        // Функция для добавления в друзья
+        // Функция добавления в друзья
         function addFriend(userId) {
             fetch(`/api/send-friend-request`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                 },
-                body: JSON.stringify({ friendId: userId }) // Передаем идентификатор в теле запроса
+                body: JSON.stringify({ friendId: userId }) 
             })
             .then(response => {
                 if (response.ok) {
-                    return response.json(); // Распаковка ответа в JSON
+                    return response.json(); 
                 } else {
-                    throw new Error('Ошибка при добавлении в друзья.'); // Обработка ошибки
+                    throw new Error('Ошибка при добавлении в друзья.'); 
                 }
             })
             .then(data => {
-                alert(data.message); // Отображаем сообщение об успехе
-                document.getElementById('addFriendBtn').textContent = 'Запрос отправлен'; // Изменяем текст на кнопке
-                document.getElementById('addFriendBtn').disabled = true; // Делаем кнопку недоступной
+                alert(data.message); 
+                document.getElementById('addFriendBtn').textContent = 'Запрос отправлен'; 
+                document.getElementById('addFriendBtn').disabled = true; 
             })
             .catch(error => {
                 console.error('Ошибка:', error);
-                alert(error.message); // Показ сообщения об ошибке
+                alert(error.message); 
             });
         }
 
-        // Функция для лайка поста
-        function likePost(postId) {
-            fetch(`/api/like-post/${postId}`, { method: 'POST' })
-                .then(response => {
-                    if (response.ok) {
-                        alert('Пост понравился!');
-                    } else {
-                        alert('Ошибка при лайке поста.');
-                    }
-                });
+        $('.like-button').on('click', function() {
+    const commentId = $(this).data('comment-id');
+    $.ajax({
+        url: '/comments/like/' + commentId,
+        method: 'POST',
+        success: function(response) {
+            // Обновите отображение количества лайков в пользовательском интерфейсе
+            console.log(response.message); // Уведомление об успешном результате
+        },
+        error: function(error) {
+            console.error('Ошибка при лайке комментария:', error);
         }
+    });
+});
 
-        // Функция для пересылки поста
-        function sharePost(postId) {
-            alert(`Пост ${postId} переслан!`); // Логика пересылки поста
+$('.reply-button').on('click', function() {
+    const commentId = $(this).data('comment-id');
+    $('#reply-form-' + commentId).toggle(); // Показать или скрыть форму ответа
+});
+$('.submit-reply').on('click', function() {
+    const commentId = $(this).data('comment-id');
+    const replyContent = $('#reply-form-' + commentId).find('textarea').val();
+    
+    $.ajax({
+        url: '/comments/reply/' + commentId,
+        method: 'POST',
+        data: { content: replyContent },
+        success: function(response) {
+            // Обновите отображение комментариев, чтобы добавить ответ
+            console.log(response.message);
+        },
+        error: function(error) {
+            console.error('Ошибка при отправке ответа:', error);
         }
+    });
+});
 
-        // Функция для добавления комментария к посту
-        function commentPost(postId) {
-            const comment = prompt("Введите ваш комментарий:");
-            if (comment) {
-                fetch(`/api/comments/${postId}`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({ content: comment }) // Передача комментария
-                })
-                .then(response => {
-                    if (response.ok) {
-                        alert('Комментарий добавлен!');
-                    } else {
-                        alert('Ошибка при добавлении комментария.');
-                    }
-                });
-            }
-        }
     </script>
 </body>
 </html>
