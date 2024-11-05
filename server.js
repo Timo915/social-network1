@@ -59,7 +59,7 @@ const upload = multer({
 
 const Comment = require('./models/Comment'); // Путь может различаться в зависимости от вашей структуры файлов
 const Like = require('./models/Like'); // Путь может отличаться
-const Friendship = require('./models/Friendship');
+const FriendshipModel = require('./models/Friendship');
 const FriendRequest = require('./models/FriendRequest'); // Путь должен быть правильным относительно вашего проекта
 // Предположим, у вас есть модель Post
 const Post = require('./models/Post');
@@ -997,6 +997,9 @@ async function updateFilePaths() {
                         return filePath.replace('http://localhost:5000/', ''); // Оставляем только относительный путь
                     } else if (filePath.startsWith('C:\\')) {
                         return filePath.replace('C:\\social-network\\profile\\', ''); // Обрабатываем путь, если он полный
+                    } else if (filePath.startsWith('/opt/render/project/src/profile/')) {
+                        // Обрабатываем путь, чтобы оставить uploads
+                        return filePath.replace('/opt/render/project/src/profile/uploads/', 'uploads/'); 
                     }
                     return filePath; // Возвращаем путь как есть, если изменений не требуется
                 });
@@ -1285,22 +1288,96 @@ app.get('/videos', async (req, res) => {
 });
 
 app.get('/friends', isAuthenticated, async (req, res) => {
-    const userId = req.user._id;
+    const userId = req.user._id; // Получаем ID текущего пользователя
 
     try {
         const user = await User.findById(userId).populate('friends', 'username'); // Заполненный массив друзей
         const friends = user.friends;
 
-        const sentRequests = await FriendRequest.find({ senderId: userId })  // Запросы, отправленные этим пользователем
-            .populate('friendId', 'username'); // Заполняем поле friendId, чтобы получить их username
+        const sentRequests = await FriendRequest.find({ senderId: userId })  // Запросы, отправленные пользователем
+            .populate('friendId', 'username'); // Заполняем поле friendId
 
-        res.render('friends', { friends, sentRequests }); // Передаем данные в шаблон
+        // Передаем дополнительные данные в шаблон
+        res.render('friends', { userId, friends, sentRequests }); // Передаем userId, друзей и запросы
     } catch (error) {
         console.error('Ошибка при получении списка друзей:', error);
         res.status(500).send('Ошибка сервера');
     }
 });
 
+// Обработка маршрута для получения входящих запросов
+// Обработка маршрута для получения входящих запросов
+app.get('/api/get-incoming-requests/:userId', async (req, res) => {
+    const { userId } = req.params;
+
+    try {
+        // Находим входящие запросы на дружбу, где пользователь является получателем
+        const incomingRequests = await FriendRequest.find({ 
+            receiver: userId, // userId - это ID получателя
+            status: 'pending'  // Запросы сPending статусом
+        })
+        .populate('sender', 'username'); // Подгружаем информацию о отправителе, предполагая, что в модели User есть поле username
+
+        // Если входящих запросов нет, отправляем 404
+        if (incomingRequests.length === 0) {
+            return res.status(404).json({ message: 'Нет входящих запросов' });
+        }
+
+        // Если запросы были найдены, отправляем их в ответе
+        return res.json(incomingRequests);
+    } catch (error) {
+        // Обработка ошибок и логирование
+        console.error('Ошибка при получении входящих запросов:', error);
+        return res.status(500).json({ message: 'Произошла ошибка при обработке запроса' });
+    }
+});
+
+app.get('/api/current-user', (req, res) => {
+    if (!req.isAuthenticated()) {
+        return res.status(401).json({ message: 'Необходимо войти в систему' });
+    }
+    res.json(req.user);
+});
+
+// Определяем функцию до ее вызова
+app.get('/api/friends/:userId', async (req, res) => {
+    const userId = req.params.userId;
+
+    // Проверка формата идентификатора
+    if (!mongoose.isValidObjectId(userId)) {
+        return res.status(400).json({ message: 'Invalid user ID' });
+    }
+
+    try {
+        const friendships = await FriendshipModel.find({
+            $or: [{ user1: userId }, { user2: userId }]
+        }).populate('user1 user2', 'username');
+
+        const friends = friendships.map(friendship => {
+            return friendship.user1.equals(userId) ? friendship.user2 : friendship.user1;
+        });
+
+        res.json(friends);
+    } catch (error) {
+        console.error('Ошибка при получении друзей:', error);
+        res.status(500).json({ message: 'Ошибка сервера' });
+    }
+});
+
+// Пример маршрута в express для получения друзей
+app.get('/api/get-friends', isAuthenticated, async (req, res) => {
+    try {
+        const user = await User.findById(req.user.id).populate('friends', 'username');
+        if (!user) {
+            console.error('Пользователь не найден для ID:', req.user.id);
+            return res.status(404).json({ message: 'Пользователь не найден' });
+        }
+        res.json(user.friends);
+    } catch (error) {
+        console.error('Ошибка при получении списка друзей:', error);
+        res.status(500).json({ message: 'Ошибка на сервере' });
+    }
+});
 
 async function getNotifications(userId) {
     try {

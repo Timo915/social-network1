@@ -215,7 +215,7 @@
                                 <span role="img" aria-label="views">👁️</span> <span class="view-count"><%= post.views %></span>
                             </span>
                             <span class="shares">
-                                <button class="share-button" data-id="<%= post._id %>" onclick="sharePost('<%= post._id %>')">
+                                <button class="share-button" onclick="toggleShareOptions()">
                                     <span role="img" aria-label="share">📤</span> <span class="share-count"><%= post.shares %></span>
                                 </button>
                             </span>
@@ -224,6 +224,28 @@
                                     <span role="img" aria-label="comment">💬</span> <span class="comment-count"><%= post.comments.length %></span>
                                 </button>
                             </span>
+                            
+                        </div>
+                        <div id="share-options" style="display:none;">
+                            <h3>Поделитесь в социальных сетях</h3>
+                            <ul>
+                                <li><a href="https://facebook.com/sharer/sharer.php?u=<%= encodeURIComponent(post.url) %>" target="_blank">Facebook</a></li>
+                                <li><a href="https://twitter.com/intent/tweet?url=<%= encodeURIComponent(post.url) %>" target="_blank">Twitter</a></li>
+                                <li><a href="https://www.linkedin.com/sharing/share-offsite/?url=<%= encodeURIComponent(post.url) %>" target="_blank">LinkedIn</a></li>
+                                <li><a href="https://vk.com/share.php?url=<%= encodeURIComponent(post.url) %>" target="_blank">ВКонтакте</a></li>
+                                <li><a href="https://www.instagram.com/?url=<%= encodeURIComponent(post.url) %>" target="_blank" onclick="alert('Для репоста в Instagram, загрузите ссылку в приложении.');">Instagram (пост)</a></li>
+                                <li><a href="https://www.instagram.com/?url=<%= encodeURIComponent(post.url) %>" target="_blank" onclick="alert('Для добавления в Историю Instagram, загрузите ссылку в приложении.');">Instagram (история)</a></li>
+                            </ul>
+                        
+                            <h3>Выберите друга для отправки сообщения</h3>
+                            <select id="friendsList">
+                                <option value="">Загрузка друзей...</option>
+                            </select>
+                        
+                            <h4>Сообщение:</h4>
+                            <textarea id="message-content" rows="4" placeholder="Введите ваше сообщение..."></textarea>
+                            <br>
+                            <button onclick="sendMessage()">Отправить сообщение</button>
                         </div>
                     
                         <h4>Последние комментарии:</h4>
@@ -267,6 +289,96 @@
     <script src="/socket.io/socket.io.js"></script>
     <script src="/js/callManager.js"></script>
     <script>
+async function loadFriends() {
+            try {
+                const response = await fetch('/api/get-friends'); // Запрос списка друзей
+                const text = await response.text(); // Получаем текст ответа
+                console.log(text); // Логируем текст
+
+                if (!response.ok) {
+                    throw new Error('Ошибка сети: ' + text); // Обработка ошибок
+                }
+
+                const friendsList = JSON.parse(text); // Парсим JSON-ответ
+
+                const friendsContainer = document.getElementById('friendsList'); // Получаем контейнер для друзей
+                friendsContainer.innerHTML = ''; // Очищаем текущий список
+
+                friendsList.forEach(friend => { // Проходим по каждому другу
+                    const listItem = document.createElement('li'); // Создаем элемент списка
+                    listItem.className = 'user-card'; // Устанавливаем класс
+                    listItem.innerHTML = `
+                        <span>${friend.username}</span> 
+                        <button onclick="initiateVideoCall('${friend._id}')">Видеозвонок</button>
+                        <button onclick="initiateVoiceCall('${friend._id}')">Голосовой звонок</button>
+                    `; // Добавляем данные о друге и кнопки для звонков
+                    friendsContainer.appendChild(listItem); // Добавляем элемент в контейнер
+                });
+            } catch (error) {
+                console.error('Ошибка при загрузке списка друзей:', error); // Логируем ошибку
+            }
+        }
+
+
+
+document.getElementById('send-message').addEventListener('click', async () => {
+    const selectedFriendId = document.getElementById('friends-list').value;
+    const messageContent = document.getElementById('message').value;
+
+    if (!selectedFriendId || !messageContent) {
+        alert('Пожалуйста, выберите друга и введите сообщение.');
+        return;
+    }
+
+    try {
+        const response = await fetch('/api/send-message', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                friendId: selectedFriendId,
+                message: messageContent
+            })
+        });
+
+        if (!response.ok) {
+            throw new Error('Ошибка при отправке сообщения: ' + await response.text());
+        }
+
+        alert('Сообщение отправлено!');
+        document.getElementById('message').value = '';
+    } catch (error) {
+        console.error('Ошибка:', error);
+        alert('Ошибка при отправке сообщения.');
+    }
+});
+
+document.addEventListener('DOMContentLoaded', loadFriends);
+
+
+
+    function toggleShareOptions() {
+        const options = document.getElementById('share-options');
+        options.style.display = options.style.display === 'none' ? 'block' : 'none';
+        // Замените 'someUserId' на актуальный ID пользователя
+        fetchFriends('someUserId'); 
+    }
+
+    function sendMessage() {
+        const friend = document.getElementById('friends-list').value;
+        const message = document.getElementById('message-content').value;
+
+        if (friend && message) {
+            alert(`Сообщение отправлено другу: ${friend}\nСообщение: ${message}`);
+            // Реализуйте логику отправки сообщения здесь
+        } else if (!friend) {
+            alert('Пожалуйста, выберите друга.');
+        } else if (!message) {
+            alert('Пожалуйста, введите сообщение.');
+        }
+    }
+
 fetch('http://localhost:5000/api/posts')
     .then(response => response.json())
     .then(posts => {

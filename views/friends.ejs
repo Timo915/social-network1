@@ -7,9 +7,33 @@
     <style>
         body {
             font-family: Arial, sans-serif;
-            margin: 20px;
+            margin: 0;
+            background-color: #e0e0e0;
         }
-        h1 {
+        header {
+            background-color: #6200ea;
+            color: white;
+            padding: 15px 20px;
+            text-align: center;
+        }
+        nav {
+            display: flex;
+            justify-content: center;
+            background-color: #333;
+        }
+        nav a {
+            color: white;
+            padding: 14px 20px;
+            text-decoration: none;
+            text-align: center;
+        }
+        nav a:hover {
+            background-color: #575757;
+        }
+        main {
+            padding: 20px;
+        }
+        h1, h2 {
             color: #333;
         }
         ul {
@@ -24,105 +48,294 @@
             display: flex;
             justify-content: space-between;
             align-items: center;
+            background-color: #fff;
+            transition: 0.3s;
+        }
+        li:hover {
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
         }
         button {
-            background-color: #ff4c4c; /* Красный цвет для кнопки отмены */
+            background-color: #f44336;
             color: white;
             border: none;
             border-radius: 5px;
             padding: 5px 10px;
             cursor: pointer;
+            transition: background-color 0.3s;
         }
         button:hover {
-            background-color: #ff0000; /* Более темный красный при наведении */
+            background-color: #d32f2f;
+        }
+        footer {
+            text-align: center;
+            padding: 10px;
+            background-color: #6200ea;
+            color: white;
+            position: relative;
+            bottom: 0;
+            width: 100%;
         }
     </style>
 </head>
 <body>
-    <h1>Список Друзей</h1>
-    <ul id="friendsList"></ul>
+    <header>
+        <h1>Друзья и Запросы</h1>
+    </header>
 
-    <h1>Отправленные Запросы на Дружбу</h1>
-    <ul id="sentRequestsList"></ul>
+    <nav>
+        <a href="/home">Главная</a>
+        <a href="#friends" onclick="showSection('friends')">Список Друзей</a>
+        <a href="#sentRequests" onclick="showSection('sentRequests')">Отправленные Запросы</a>
+        <a href="#incomingRequests" onclick="showSection('incomingRequests')">Входящие Запросы</a>
+    </nav>
+
+    <main>
+        <section id="friends" style="display: none;">
+            <h2>Список Друзей</h2>
+            <ul id="friendsList"></ul>
+        </section>
+
+        <section id="sentRequests" style="display: none;">
+            <h2>Отправленные Запросы на Дружбу</h2>
+            <ul id="sentRequestsList"></ul>
+        </section>
+
+        <section id="incomingRequests" style="display: none;">
+            <h2>Входящие Запросы на Дружбу</h2>
+            <ul id="incomingRequestsList"></ul>
+        </section>
+
+    </main>
+
+    <footer>
+        <p>© 2023 Друзья и Запросы. Все права защищены.</p>
+    </footer>
 
     <script>
-        // Функция для загрузки друзей
-        async function loadFriends() {
+        let currentUser = null;
+    
+        async function loadCurrentUser() {
             try {
-                const response = await fetch('/api/get-friends');
-                const friends = await response.json();
-
-                const friendsList = document.getElementById('friendsList');
-                friends.forEach(friend => {
-                    const listItem = document.createElement('li');
-                    listItem.innerHTML = `
-                        <span>${friend.username}</span>
-                        <button onclick="removeFriend('${friend._id}')">Удалить из друзей</button>
-                    `;
-                    friendsList.appendChild(listItem);
-                });
+                const response = await fetch('http://localhost:5000/api/current-user');
+                if (!response.ok) {
+                    throw new Error('Не удалось загрузить текущего пользователя');
+                }
+                currentUser = await response.json();
+                console.log('Текущий пользователь:', currentUser);
+                return currentUser._id;
             } catch (error) {
-                console.error('Ошибка при загрузке друзей:', error);
+                console.error(error.message);
+                return null;
             }
         }
-
-        // Функция для загрузки отправленных запросов
+    
+        async function loadFriends(userId) {
+            const friendsContainer = document.getElementById('friendsList');
+            friendsContainer.innerHTML = '<p>Загрузка списка друзей...</p>';
+    
+            try {
+                const response = await fetch(`/api/friends/${userId}`);
+                if (!response.ok) {
+                    throw new Error('Ошибка при загрузке списка друзей: ' + response.statusText);
+                }
+    
+                const friendsList = await response.json();
+    
+                // Проверка формата данных
+                if (!Array.isArray(friendsList)) {
+                    throw new Error('Формат данных не является массивом');
+                }
+    
+                friendsContainer.innerHTML = '';
+    
+                if (friendsList.length === 0) {
+                    friendsContainer.innerHTML = '<p>У вас пока нет друзей.</p>';
+                    return;
+                }
+    
+                // Исключаем самого себя из списка друзей
+                const filteredFriendsList = friendsList.filter(friend => friend._id !== userId);
+    
+                if (filteredFriendsList.length === 0) {
+                    friendsContainer.innerHTML = '<p>У вас нет друзей.</p>';
+                    return;
+                }
+    
+                const friendsHTML = filteredFriendsList.map(friend => `
+                    <li>
+                        <span>${friend.username}</span>
+                        <button onclick="removeFriend('${friend._id}')">Удалить друга</button>
+                    </li>
+                `).join('');
+    
+                friendsContainer.insertAdjacentHTML('beforeend', friendsHTML);
+            } catch (error) {
+                console.error('Ошибка при загрузке списка друзей:', error);
+                friendsContainer.innerHTML = '<p>Не удалось загрузить список друзей. Пожалуйста, попробуйте позже.</p>';
+            }
+        }
+    
         async function loadSentRequests() {
+            const sentRequestsContainer = document.getElementById('sentRequestsList');
+            sentRequestsContainer.innerHTML = '<p>Загрузка отправленных запросов...</p>';
+    
             try {
                 const response = await fetch('/api/get-sent-requests');
+                if (!response.ok) {
+                    throw new Error('Ошибка при получении отправленных запросов: ' + response.statusText);
+                }
+    
                 const requests = await response.json();
-
-                const sentRequestsList = document.getElementById('sentRequestsList');
+                sentRequestsContainer.innerHTML = '';
+    
                 requests.forEach(request => {
                     const listItem = document.createElement('li');
                     listItem.innerHTML = `
                         <span>${request.receiver.username} (запрос отправлен)</span>
                         <button onclick="cancelFriendRequest('${request._id}')">Отменить запрос</button>
                     `;
-                    sentRequestsList.appendChild(listItem);
+                    sentRequestsContainer.appendChild(listItem);
                 });
+    
+                if (requests.length === 0) {
+                    sentRequestsContainer.innerHTML = '<p>У вас нет отправленных запросов.</p>';
+                }
             } catch (error) {
                 console.error('Ошибка при загрузке отправленных запросов:', error);
+                alert('Не удалось загрузить отправленные запросы. Пожалуйста, попробуйте позже.');
             }
         }
 
-        // Функция для удаления из друзей
+        async function loadIncomingRequests(userId) {
+    const incomingRequestsContainer = document.getElementById('incomingRequestsList');
+    incomingRequestsContainer.innerHTML = '<p>Загрузка входящих запросов...</p>';
+
+    try {
+        const response = await fetch(`/api/get-incoming-requests/${userId}`);
+        if (!response.ok) {
+            throw new Error('Ошибка при получении входящих запросов: ' + response.statusText);
+        }
+
+        const requests = await response.json();
+        incomingRequestsContainer.innerHTML = ''; // Очищаем контейнер
+
+        // Создаем документ фрагмент для более эффективного обновления DOM
+        const fragment = document.createDocumentFragment();
+        
+        requests.forEach(request => {
+            const listItem = document.createElement('li');
+            listItem.innerHTML = `
+                <span>${request.sender.username} (запрос получен)</span>
+                <button onclick="acceptFriendRequest('${request._id}')">Принять</button>
+                <button onclick="rejectFriendRequest('${request._id}')">Отклонить</button>
+            `;
+            fragment.appendChild(listItem); // Добавляем в фрагмент
+        });
+
+        // Добавляем все элементы списка в контейнер
+        incomingRequestsContainer.appendChild(fragment);
+
+        if (requests.length === 0) {
+            incomingRequestsContainer.innerHTML = '<p>Нет входящих запросов.</p>';
+        }
+    } catch (error) {
+        console.error('Ошибка при загрузке входящих запросов:', error);
+        incomingRequestsContainer.innerHTML = '<p>Не удалось загрузить входящие запросы. Пожалуйста, попробуйте позже.</p>';
+    }
+}
+    
         async function removeFriend(friendId) {
-            // Вызов API для удаления друга
-            const response = await fetch(`/api/remove-friend/${friendId}`, {
-                method: 'DELETE',
-            });
-
-            if (response.ok) {
-                // Удаляем элемент из списка
-                alert('Друг удален');
-                loadFriends(); // Перезагружаем список друзей
-            } else {
-                alert('Ошибка при удалении друга');
+            if (confirm('Вы действительно хотите удалить друга?')) {
+                try {
+                    const response = await fetch(`/api/remove-friend/${friendId}`, { method: 'DELETE' });
+                    if (!response.ok) {
+                        throw new Error('Ошибка при удалении друга: ' + response.statusText);
+                    }
+                    alert('Друг успешно удален.');
+                    const userId = await loadCurrentUser();
+                    if (userId) loadFriends(userId);
+                } catch (error) {
+                    alert(error.message);
+                }
             }
         }
-
-        // Функция для отмены отправленного запроса
+    
         async function cancelFriendRequest(requestId) {
-            const response = await fetch(`/api/cancel-request/${requestId}`, {
-                method: 'DELETE',
-            });
-
-            if (response.ok) {
-                alert('Запрос на дружбу отменен');
-                loadSentRequests(); // Перезагружаем список отправленных запросов
-            } else {
-                alert('Ошибка при отмене запроса');
+            if (confirm('Вы действительно хотите отменить запрос?')) {
+                try {
+                    const response = await fetch(`/api/cancel-request/${requestId}`, { method: 'DELETE' });
+                    if (!response.ok) {
+                        throw new Error('Ошибка при отмене запроса: ' + response.statusText);
+                    }
+                    alert('Запрос на дружбу отменен');
+                    loadSentRequests(); // Обновляем список отправленных запросов
+                } catch (error) {
+                    alert(error.message);
+                }
             }
         }
 
-        // Загружаем данные при загрузке страницы
-        window.onload = () => {
-            loadFriends();
-            loadSentRequests();
+        async function acceptFriendRequest(requestId) {
+            if (confirm('Вы действительно хотите принять запрос на дружбу?')) {
+                try {
+                    const response = await fetch(`/api/accept-request/${requestId}`, { method: 'POST' });
+                    if (!response.ok) {
+                        throw new Error('Ошибка при принятии запроса: ' + response.statusText);
+                    }
+                    alert('Запрос на дружбу принят.');
+                    const userId = await loadCurrentUser();
+                    if (userId) loadIncomingRequests(userId);  // Обновляем входящие запросы
+                } catch (error) {
+                    alert(error.message);
+                }
+            }
+        }
+
+        async function rejectFriendRequest(requestId) {
+            if (confirm('Вы действительно хотите отклонить запрос на дружбу?')) {
+                try {
+                    const response = await fetch(`/api/reject-request/${requestId}`, { method: 'DELETE' });
+                    if (!response.ok) {
+                        throw new Error('Ошибка при отклонении запроса: ' + response.statusText);
+                    }
+                    alert('Запрос на дружбу отклонен.');
+                    const userId = await loadCurrentUser();
+                    if (userId) loadIncomingRequests(userId);  // Обновляем входящие запросы
+                } catch (error) {
+                    alert(error.message);
+                }
+            }
+        }
+
+        window.onload = async () => {
+            const userId = await loadCurrentUser();
+            if (userId) {
+                loadFriends(userId);
+                loadSentRequests();
+                loadIncomingRequests(userId);
+                showSection('friends'); // Показываем секцию списка друзей по умолчанию
+            } else {
+                alert('Не удалось загрузить информацию о пользователе. Пожалуйста, войдите в систему.');
+            }
         };
+
+        function showSection(section) {
+            document.querySelectorAll('main > section').forEach(sec => {
+                sec.style.display = 'none'; // Скрываем все секции
+            });
+            
+            // Показываем только нужную секцию
+            if (section === 'friends') {
+                loadFriends(currentUser._id);
+                document.getElementById('friends').style.display = 'block';
+            } else if (section === 'sentRequests') {
+                loadSentRequests();
+                document.getElementById('sentRequests').style.display = 'block';
+            } else if (section === 'incomingRequests') {
+                loadIncomingRequests(currentUser._id);
+                document.getElementById('incomingRequests').style.display = 'block';
+            }
+        }
     </script>
-    <script src="/socket.io/socket.io.js"></script>
-    <script src="/js/callManager.js"></script>
 </body>
 </html>

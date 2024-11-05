@@ -1,4 +1,5 @@
-// models/Friendship.js
+//// models/Friendship.js
+
 const mongoose = require('mongoose');
 
 const FriendshipSchema = new mongoose.Schema({
@@ -7,4 +8,6 @@ const FriendshipSchema = new mongoose.Schema({
     createdAt: { type: Date, default: Date.now }
 });
 
-module.exports = mongoose.model('Friendship', FriendshipSchema);
+const FriendshipModel = mongoose.model('Friendship', FriendshipSchema);
+
+module.exports = FriendshipModel;
