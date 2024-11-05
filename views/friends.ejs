@@ -115,19 +115,28 @@
         let currentUser = null;
     
         async function loadCurrentUser() {
-            try {
-                const response = await fetch('http://localhost:5000/api/current-user');
-                if (!response.ok) {
-                    throw new Error('Не удалось загрузить текущего пользователя');
-                }
-                currentUser = await response.json();
-                console.log('Текущий пользователь:', currentUser);
-                return currentUser._id;
-            } catch (error) {
-                console.error(error.message);
-                return null;
+    try {
+        const token = localStorage.getItem('jwtToken'); // Или где вы храните токен
+        const response = await fetch('http://localhost:5000/api/current-user', {
+            method: 'GET',
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
             }
+        });
+
+        if (!response.ok) {
+            throw new Error('Не удалось загрузить текущего пользователя');
         }
+
+        const currentUser = await response.json();
+        console.log('Текущий пользователь:', currentUser);
+        return currentUser._id;
+    } catch (error) {
+        console.error(error.message);
+        return null;
+    }
+}
     
         async function loadFriends(userId) {
             const friendsContainer = document.getElementById('friendsList');
