@@ -79,7 +79,14 @@ const PORT = process.env.PORT || 5000;
 // Создание сервера HTTP
 const server = http.createServer(app);
 const io = socketIo(server); // Инициализация Socket.IO
+const cors = require('cors');
 
+// Настройка CORS
+app.use(cors({
+    origin: 'http://localhost:5000', // Укажите адрес вашего клиента (или используйте '*' для всех)
+    methods: ['GET', 'POST', 'PUT', 'DELETE'], // Разрешите методы
+    credentials: true // Если вы используете куки
+}));
 
 
 // Определение статической папки для загрузок
