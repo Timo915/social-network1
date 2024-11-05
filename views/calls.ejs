@@ -167,14 +167,12 @@
         // Функция для загрузки текущего пользователя
         async function loadCurrentUser() {
             try {
-                const response = await fetch('http://localhost:5000/api/current-user'); // Получаем информацию о текущем пользователе
-                if (!response.ok) {
-                    throw new Error('Не удалось загрузить текущего пользователя'); // Обработка ошибок
-                }
-                currentUser = await response.json(); // Присваиваем загруженного пользователя
-                console.log('Текущий пользователь:', currentUser); // Логируем текущего пользователя
+                const response = await fetch('/api/current-user'); 
+                if (!response.ok) throw new Error('Не удалось загрузить текущего пользователя');
+                return await response.json();
             } catch (error) {
-                console.error(error.message); // Логируем ошибку
+                console.error(error.message);
+                return null;
             }
         }
 
@@ -641,7 +639,7 @@
     const endCallButton = document.getElementById('endCallButton');
     if (endCallButton) {
         endCallButton.addEventListener('click', async () => {
-            // Ваш код завершения звонка
+            await endCall(); // Ваш код завершения звонка
         });
     } else {
         console.error('endCallButton не найден в DOM');
@@ -650,31 +648,34 @@
 
         // Загрузка данных при загрузке страницы
         window.onload = async () => {
-            await loadCurrentUser(); // Загружаем текущего пользователя
-            await loadFriends(); // Загружаем список друзей
-            await loadCallHistory(); // Загружаем историю звонков
-            
-            peer = new Peer(); // Инициализация экземпляра Peer
+    currentUser = await loadCurrentUser(); // Загрузка текущего пользователя
+    if (!currentUser) {
+        console.error('Не удалось загрузить текущего пользователя.');
+        return; // Выход, если пользователь не загружен
+    }
+    
+    await loadFriends(); // Загружаем список друзей
+    await loadCallHistory(); // Загружаем историю звонков
+    peer = new Peer(); // Инициализация экземпляра Peer
 
-            // Слушаем входящие звонки
-            socket.on('incoming-call', (callData) => {
-                if (isCallActive) {
-                    showError("Вы уже находитесь в звонке."); // Ошибка, если уже в звонке
-                    return; // Выход
-                }
-                showIncomingCallNotification(callData); // Показываем уведомление о входящем звонке
-            });
+    // Входящие звонки и события
+    socket.on('incoming-call', (callData) => {
+        if (isCallActive) {
+            showError("Вы уже находитесь в звонке."); // Ошибка, если уже в звонке
+            return; // Выход
+        }
+        showIncomingCallNotification(callData); // Показываем уведомление о входящем звонке
+    });
 
-            // Обработка входящих вызовов от Peer
-            peer.on('call', function(call) {
-                call.answer(currentStream); // Ответ на звонок с текущим потоком
+    peer.on('call', function(call) {
+        call.answer(currentStream); // Ответ на звонок с текущим потоком
 
-                call.on('stream', function(remoteStream) {
-                    const remoteVideoElement = document.getElementById('remoteVideo'); // Получаем элемент видео
-                    remoteVideoElement.srcObject = remoteStream; // Устанавливаем источник потока
-                });
-            });
-        };
+        call.on('stream', function(remoteStream) {
+            const remoteVideoElement = document.getElementById('remoteVideo'); // Получаем элемент видео
+            remoteVideoElement.srcObject = remoteStream; // Устанавливаем источник потока
+        });
+    });
+};
     </script>
 </body>
 </html>
