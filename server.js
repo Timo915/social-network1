@@ -1359,14 +1359,17 @@ app.get('/api/friends/:userId', async (req, res) => {
     }
 
     try {
+        // Находим все дружбы, в которых пользователь является одним из участников
         const friendships = await FriendshipModel.find({
             $or: [{ user1: userId }, { user2: userId }]
         }).populate('user1 user2', 'username');
 
+        // Извлекаем список друзей
         const friends = friendships.map(friendship => {
             return friendship.user1.equals(userId) ? friendship.user2 : friendship.user1;
         });
 
+        // Отправляем ответ с данными о друзьях
         res.json(friends);
     } catch (error) {
         console.error('Ошибка при получении друзей:', error);
@@ -1377,13 +1380,19 @@ app.get('/api/friends/:userId', async (req, res) => {
 // Пример маршрута в express для получения друзей
 app.get('/api/get-friends', isAuthenticated, async (req, res) => {
     try {
+        // Находим пользователя по ID, который хранится в req.user.id
         const user = await User.findById(req.user.id).populate('friends', 'username');
+        
+        // Если пользователь не найден, возвращаем 404
         if (!user) {
             console.error('Пользователь не найден для ID:', req.user.id);
             return res.status(404).json({ message: 'Пользователь не найден' });
         }
+
+        // Возвращаем список друзей пользователя
         res.json(user.friends);
     } catch (error) {
+        // Обработка ошибок
         console.error('Ошибка при получении списка друзей:', error);
         res.status(500).json({ message: 'Ошибка на сервере' });
     }
