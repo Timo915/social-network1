@@ -79,13 +79,16 @@ const PORT = process.env.PORT || 5000;
 // Создание сервера HTTP
 const server = http.createServer(app);
 const io = socketIo(server); // Инициализация Socket.IO
-const cors = require('cors');
+
 
 // Настройка CORS
+const cors = require('cors');
+
+// Настройка CORS для вашего сервера
 app.use(cors({
-    origin: 'http://localhost:5000', // Укажите адрес вашего клиента (или используйте '*' для всех)
-    methods: ['GET', 'POST', 'PUT', 'DELETE'], // Разрешите методы
-    credentials: true // Если вы используете куки
+    origin: 'https://social-network1.onrender.com', // замените на ваш клиентский домен
+    methods: ['GET', 'POST', 'PUT', 'DELETE'], // Разрешенные методы
+    credentials: true // Если вы используете куки для сессий
 }));
 
 
@@ -1314,14 +1317,14 @@ app.get('/friends', isAuthenticated, async (req, res) => {
 
 // Обработка маршрута для получения входящих запросов
 // Обработка маршрута для получения входящих запросов
-app.get('/api/get-incoming-requests/:userId', async (req, res) => {
-    const { userId } = req.params;
+app.get('/api/get-incoming-requests/:userId', isAuthenticated, async (req, res) => {
+    const userId = req.params.userId;
 
     try {
         // Находим входящие запросы на дружбу, где пользователь является получателем
         const incomingRequests = await FriendRequest.find({ 
             receiver: userId, // userId - это ID получателя
-            status: 'pending'  // Запросы сPending статусом
+            status: 'pending'  // Запросы с Pending статусом
         })
         .populate('sender', 'username'); // Подгружаем информацию о отправителе, предполагая, что в модели User есть поле username
 

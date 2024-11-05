@@ -308,16 +308,16 @@
         }
 
         window.onload = async () => {
-            const userId = await loadCurrentUser();
-            if (userId) {
-                loadFriends(userId);
-                loadSentRequests();
-                loadIncomingRequests(userId);
-                showSection('friends'); // Показываем секцию списка друзей по умолчанию
-            } else {
-                alert('Не удалось загрузить информацию о пользователе. Пожалуйста, войдите в систему.');
-            }
-        };
+    const userId = await loadCurrentUser();
+    if (userId) {
+        loadFriends(userId);
+        loadSentRequests();
+        loadIncomingRequests(userId);
+        showSection('friends'); // Показываем секцию списка друзей по умолчанию
+    } else {
+        alert('Не удалось загрузить информацию о пользователе. Пожалуйста, войдите в систему.');
+    }
+};
 
         function showSection(section) {
             document.querySelectorAll('main > section').forEach(sec => {
