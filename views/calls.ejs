@@ -166,28 +166,17 @@
 
         // Функция для загрузки текущего пользователя
         async function loadCurrentUser() {
-    try {
-        const token = localStorage.getItem('jwtToken'); // Или где вы храните токен
-        const response = await fetch('http://localhost:5000/api/current-user', {
-            method: 'GET',
-            headers: {
-                'Authorization': `Bearer ${token}`,
-                'Content-Type': 'application/json'
+            try {
+                const response = await fetch('http://localhost:5000/api/current-user'); // Получаем информацию о текущем пользователе
+                if (!response.ok) {
+                    throw new Error('Не удалось загрузить текущего пользователя'); // Обработка ошибок
+                }
+                currentUser = await response.json(); // Присваиваем загруженного пользователя
+                console.log('Текущий пользователь:', currentUser); // Логируем текущего пользователя
+            } catch (error) {
+                console.error(error.message); // Логируем ошибку
             }
-        });
-
-        if (!response.ok) {
-            throw new Error('Не удалось загрузить текущего пользователя');
         }
-
-        const currentUser = await response.json();
-        console.log('Текущий пользователь:', currentUser);
-        return currentUser._id;
-    } catch (error) {
-        console.error(error.message);
-        return null;
-    }
-}
 
         // Функция для принятия входящего звонка
         function acceptCall(callId) {
