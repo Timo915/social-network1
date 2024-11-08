@@ -4,129 +4,168 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Главная страница</title>
-    <link rel="stylesheet" href="/styles.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
     <style>
         /* Основные стили */
         body {
-            font-family: Arial, sans-serif;
+            font-family: 'Roboto', sans-serif;
             margin: 0;
             padding: 0;
-            background-color: #e9ecef;
+            background-color: #f4f7fa;
             color: #343a40;
         }
-
+    
         h1 {
             text-align: center;
-            margin: 20px 0;
-            color: #007bff;
+            margin: 30px 0;
+            color: #0056b3;
+            font-weight: 700;
+            font-size: 2.5rem;
+            text-transform: uppercase;
         }
-
+    
         nav {
-            background-color: #007bff;
+            background-color: #0056b3;
             padding: 15px;
             display: flex;
-            justify-content: center;
+            justify-content: space-between;
             flex-wrap: wrap;
-            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
         }
-
-        nav a, .dropdown button {
+    
+        nav h2 {
+            color: #ffffff;
+            margin-right: 20px;
+            font-weight: 500;
+            font-size: 1.2rem;
+        }
+    
+        nav a {
             color: white;
             padding: 10px 15px;
             text-decoration: none;
-            border: none;
-            background: none;
-            margin: 5px;
             border-radius: 5px;
-            cursor: pointer;
-            transition: background-color 0.3s;
-            font-size: 16px;
+            transition: background-color 0.2s;
+            font-weight: 500;
         }
-
-        nav a:hover, .dropdown button:hover {
-            background-color: #0056b3;
+    
+        nav a:hover {
+            background-color: #004494;
         }
-
-        .notification-badge {
-            background-color: red;
-            color: white;
-            border-radius: 50%;
-            padding: 0 5px;
-            margin-left: 5px;
-            font-size: 12px; /* Уменьшаем размер шрифта для эстетики */
-        }
-
-        h2 {
-            color: #0056b3;
-            margin: 20px 0 10px;
-        }
-
-        ul {
-            list-style-type: none;
-            padding: 0;
-            margin: 0;
-        }
-
-        li {
-            background: white;
-            margin: 10px auto;
-            padding: 15px;
-            border-radius: 5px;
-            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
-            transition: box-shadow 0.3s;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-
-        li:hover {
-            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.15);
-        }
-
-        form {
-            display: inline-block;
-            width: 100%;
-        }
-
-        form input[type="text"] {
-            padding: 10px;
-            margin-top: 5px;
-            border: 1px solid #ccc;
-            border-radius: 5px;
-            width: calc(100% - 22px);
-            transition: border-color 0.3s;
-        }
-
-        form input[type="text"]:focus {
-            border-color: #007bff;
-            outline: none;
-        }
-
-        form button {
-            padding: 10px;
-            border: none;
-            background-color: #0056b3;
-            color: white;
-            border-radius: 5px;
-            cursor: pointer;
-            margin-top: 5px;
-            transition: background-color 0.3s;
-            font-size: 16px;
-        }
-
-        form button:hover {
-            background-color: #007bff;
-        }
-
+    
         .content {
             max-width: 900px;
             margin: 20px auto;
             padding: 20px;
             background: white;
-            border-radius: 5px;
-            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            border-radius: 10px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+            transition: transform 0.2s, box-shadow 0.2s;
         }
-
+    
+        .content:hover {
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+            transform: translateY(-5px);
+        }
+    
+        h2 {
+            color: #0056b3;
+            margin: 20px 0;
+            font-weight: 500;
+            font-size: 1.5rem;
+        }
+    
+        ul {
+            list-style-type: none;
+            padding: 0;
+            margin: 0;
+        }
+    
+        li {
+            background: #f8f9fa;
+            margin: 10px 0;
+            padding: 15px;
+            border-radius: 10px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            transition: transform 0.2s, box-shadow 0.2s;
+            display: flex;
+            flex-direction: column;
+        }
+    
+        li:hover {
+            box-shadow: 0 6px 12px rgba(0, 0, 0, 0.15);
+            transform: translateY(-2px);
+        }
+    
+        .post-image, video {
+            max-width: 100%;
+            border-radius: 10px;
+            margin-top: 10px;
+            cursor: pointer;
+            transition: transform 0.2s;
+        }
+    
+        video:hover, .post-image:hover {
+            transform: scale(1.05);
+        }
+    
+        /* Модальные окна */
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            overflow: auto;
+            background-color: rgba(0, 0, 0, 0.8);
+        }
+    
+        .modal-content {
+            margin: 10% auto;
+            width: 90%;
+            max-width: 700px;
+        }
+    
+        .close {
+            color: white;
+            float: right;
+            font-size: 28px;
+            font-weight: bold;
+        }
+    
+        /* Стиль для модального окна загрузки видео */
+        .upload-video-modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            overflow: auto;
+            background-color: rgba(0, 0, 0, 0.8);
+            padding-top: 60px;
+        }
+    
+        .upload-video-content {
+            background-color: white;
+            margin: 0 auto;
+            padding: 20px;
+            border-radius: 10px;
+            width: 90%;
+            max-width: 600px;
+        }
+    
+        .upload-video-close {
+            color: red;
+            float: right;
+            font-size: 28px;
+            font-weight: bold;
+        }
+    
         footer {
             text-align: center;
             margin-top: 20px;
@@ -134,179 +173,464 @@
             color: #777;
             background-color: #f1f1f1;
             border-top: 1px solid #ccc;
+            font-size: 0.9rem;
         }
-
+    
+        .button-group {
+            display: flex;
+            gap: 10px;
+            margin-top: 10px;
+        }
+    
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            padding: 8px 12px;
+            border-radius: 5px;
+            border: none;
+            cursor: pointer;
+            transition: background-color 0.3s;
+            font-size: 1rem;
+        }
+    
+        .btn-primary {
+            background-color: #007bff;
+            color: white;
+        }
+    
+        .btn-primary:hover {
+            background-color: #0056b3;
+        }
+    
+        .btn-secondary {
+            background-color: #e2e2e2;
+            color: #343a40;
+        }
+    
+        .btn-secondary:hover {
+            background-color: #d1d1d1;
+        }
+    
+        .notification-badge {
+            background-color: red;
+            color: white;
+            border-radius: 50%;
+            padding: 2px 6px;
+            position: relative;
+            top: -8px;
+            right: -5px;
+            font-size: 0.8rem;
+        }
+    
+        /* Поиск пользователей */
+        .user-search-container {
+            background-color: #ffffff;
+            border-radius: 10px;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+            padding: 20px;
+            margin: 20px 0;
+        }
+    
+        .user-search-form {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 20px;
+        }
+    
+        .user-search-form input {
+            flex-grow: 1;
+            padding: 10px;
+            border-radius: 5px;
+            border: 1px solid #ccc;
+            margin-right: 10px;
+            font-size: 16px;
+            transition: border-color 0.3s;
+        }
+    
+        .user-search-form input:focus {
+            border-color: #007bff;
+            outline: none;
+        }
+    
+        .user-list {
+            list-style-type: none;
+            padding: 0;
+            margin: 0;
+        }
+    
         .user-actions {
             display: flex;
-            flex-direction: column;
+            justify-content: space-between;
+            align-items: center; 
+            background: #f8f9fa;
+            margin: 10px 0;
+            padding: 15px;
+            border-radius: 5px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            transition: transform 0.2s, box-shadow 0.2s;
         }
-
-        .user-actions button {
-            margin-top: 10px;
-            padding: 5px 10px;
-            background-color: #007bff;
+    
+        .user-actions:hover {
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.15);
+            transform: translateY(-2px);
+        }
+    
+        .username {
+            font-weight: bold;
+            color: #0056b3;
+        }
+    
+        .no-users {
+            color: #dc3545;
+            text-align: center;
+            padding: 15px;
+            border-radius: 5px;
+            background: #f8d7da;
+            margin: 10px 0;
+        }
+    
+        /* Камера */
+        .camera-button {
+            background-color: #28a745;
             color: white;
             border: none;
             border-radius: 5px;
+            padding: 10px 15px;
             cursor: pointer;
             transition: background-color 0.3s;
         }
-
-        .user-actions button:hover {
-            background-color: #0056b3;
+    
+        .camera-button:hover {
+            background-color: #218838;
         }
-
-        /* Дополнительные стили для кнопок и секций */
-        .button-group {
-            display: flex;
-            justify-content: flex-end;
+    
+        .camera-icon {
+            margin-right: 5px;
         }
+        
 
-        .button-group button {
-            margin-left: 5px;
-        }
 
-        video {
-            max-width: 100%;
-            border-radius: 5px;
-        }
+        .content {
+    padding: 20px;
+    background-color: #f9f9f9; /* Светлый фон для контента */
+    border-radius: 10px; /* Закругленные углы для контейнера */
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1); /* Тень вокруг контейнера */
+}
 
-        audio {
-            width: 100%;
-        }
+h2 {
+    font-size: 24px;
+    margin-bottom: 15px; /* Отступ снизу заголовка */
+}
+
+.btn {
+    background-color: #007bff; /* Цвет кнопки */
+    color: white; /* Цвет текста кнопки */
+    border: none;
+    padding: 10px 15px; /* Отступ внутри кнопки */
+    border-radius: 5px; /* Закругление углов у кнопки */
+    cursor: pointer; /* Указатель при наведении */
+}
+
+.btn:hover {
+    background-color: #0056b3; /* Темнее при наведении */
+}
+
+.stories-container {
+    display: flex; /* Флекс контейнер для горизонтального отображения */
+    overflow-x: auto; /* Прокрутка по оси Х, если нужно */
+    padding: 10px 0; /* Отступ сверху и снизу */
+}
+
+.story-item {
+    background-color: white; /* Цвет фона для историй */
+    border-radius: 10px; /* Закругленные углы для элементов истории */
+    margin-right: 10px; /* Отступ между элементами */
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1); /* Мягкая тень */
+    overflow: hidden; /* Скрытие элементов, выходящих за границу */
+    text-align: center; /* Центрирование текста */
+    width: 100px; /* Фиксированная ширина для историй */
+}
+
+.story-item img {
+    width: 100%; /* Полная ширина изображения в карточке */
+    height: auto; /* Автоматическая высота для соблюдения пропорций */
+    border-bottom: 4px solid #007bff; /* Линия внизу карточки */
+}
+
+.story-item span {
+    display: block; /* Отображение как блок */
+    padding: 8px; /* Отступ для текста */
+    font-weight: bold; /* Жирный текст */
+    color: #333; /* Цвет текста */
+}
+
+.stories-container::-webkit-scrollbar {
+    display: none; /* Скрытие скроллбара для эстетики */
+}
     </style>
 </head>
 <body>
-    <h1>Лента новостей</h1>
-    <nav>
-        <a href="/logout">Выйти</a>
-        <a href="/create-post">Создать пост</a>
-        <a href="/music">Музыка</a>
-        <a href="/calls">Звонки</a>
-        <a href="/history">История сообщений <span id="unreadMessageCount" class="message-badge">0</span></a> <!-- Счетчик непрочитанных сообщений -->
-        <a href="/friends">Список друзей</a>
-        <a href="/profile/<%= currentUser._id %>">Профиль</a>
-
-        <div class="dropdown">
-            <button>Уведомления
-                <span id="notification-count" class="notification-badge">0</span>
-            </button>
-            <div class="dropdown-content">
-                <a href="/notifications">Просмотреть все уведомления</a>
+    <header>
+        <h1>Лента новостей</h1>
+        <nav>
+            <div class="user-search-container">
+                <h2>Поиск пользователей:</h2>
+                <form action="/home" method="GET" class="user-search-form">
+                    <input type="text" name="search" value="<%= search || '' %>" placeholder="Введите имя пользователя" required autocomplete="off" />
+                    <button type="submit" class="btn btn-primary">Поиск</button>
+                </form>
+                
+                <h2>Пользователи:</h2>
+                <ul class="user-list">
+                    <% if (users && users.length > 0 && search) { %>
+                        <% users.forEach(user => { %>
+                            <li class="user-actions">
+                                <span class="username"><%= user.username %></span>
+                                <div class="button-group">
+                                    <button class="btn btn-secondary" onclick="window.location.href='/messages/<%= user._id %>'">Написать сообщение</button>
+                                    <button class="btn btn-secondary open-profile-button" onclick="window.location.href='/profile/<%= user._id %>'">Открыть профиль</button>
+                                </div>
+                            </li>
+                        <% }) %>
+                    <% } else if (search) { %>
+                        <li class="no-users">Нет пользователей для отображения.</li>
+                    <% } %>
+                </ul>
             </div>
-        </div>
-    </nav>
-
-    <div class="content">
-        <h2>Посты от ваших друзей:</h2>
-        <ul>
-            <% if (posts && posts.length > 0) { %>
-                <% posts.forEach(post => { %>
-                    <li>
-                        <strong><%= post.userId.username %></strong>:
-                        <p><%= post.content %></p>
-                        <% if (post.videoUrl) { %>
-                            <video controls>
-                                <source src="<%= post.videoUrl %>" type="video/mp4">
-                                Ваш браузер не поддерживает видео.
-                            </video>
-                        <% } %>
-                        <p>Создан: <%= new Date(post.createdAt).toLocaleString() %></p>
-                    </li>
-                <% }) %>
-            <% } else { %>
-                <li>Нет постов от ваших друзей.</li>
-            <% } %>
-        </ul>
-
-        <h2>Поиск пользователей:</h2>
-        <form action="/home" method="GET">
-            <input type="text" name="search" value="<%= search || '' %>" placeholder="Введите имя пользователя" required autocomplete="off" />
-            <button type="submit">Поиск</button>
-        </form>
-
-        <h2>Пользователи:</h2>
-        <ul>
-            <% if (users && users.length > 0 && search) { %>
-                <% users.forEach(user => { %>
-                    <li class="user-actions">
-                        <span><%= user.username %></span>
-                        <div class="button-group">
-                            <button onclick="window.location.href='/messages/<%= user._id %>'">Написать сообщение</button>
-                            <!-- Убрали счетчик непрочитанных сообщений -->
+            
+            <div class="nav-menu">
+                <nav id="user-nav">
+                    <a href="/logout">Выйти</a>
+                    <a href="/create-post">Создать пост</a>
+                    <a href="/music">Музыка</a>
+                    <a href="/calls">Звонки</a>
+                    <a href="/history">История сообщений <span id="unreadMessageCount" class="notification-badge">0</span></a> 
+                    <a href="/friends">Список друзей</a>
+                    <a href="/profile/<%= currentUser._id %>">Профиль</a>
+                    <div class="dropdown">
+                        <button>Уведомления <span id="notification-count" class="notification-badge">0</span></button>
+                        <div class="dropdown-content">
+                            <a href="/notifications">Просмотреть все уведомления</a>
                         </div>
-                        <button class="open-profile-button" onclick="window.location.href='/profile/<%= user._id %>'">Открыть профиль</button>
-                    </li>
-                <% }) %>
-            <% } else if (search) { %>
-                <li>Нет пользователей для отображения.</li>
-            <% } %>
-        </ul>
+                    </div>
+                </nav>
+            </div>
+        </nav>
+    </header>
 
-        <h2>Музыка:</h2>
-        <ul>
-            <% if (music && music.length > 0) { %>
-                <% music.forEach(track => { %>
-                    <li>
-                        <strong><%= track.title %></strong> - <%= track.artist %>
-                        <audio controls>
-                            <source src="<%= track.audioUrl %>" type="audio/mpeg">
-                            Ваш браузер не поддерживает аудиоплеер.
-                        </audio>
-                    </li>
-                <% }) %>
-            <% } else { %>
-                <li>Нет доступных музыкальных треков.</li>
-            <% } %>
-        </ul>
+    <main>
+        <section class="content">
+    <h2>Истории от друзей:</h2>
+    <button id="create-story-btn" class="btn btn-primary mb-3" onclick="window.location.href='/upload-videos'">
+        <i class="fas fa-plus"></i> Создать историю
+    </button>
+    <ul id="stories-list" class="stories-container">
+        <li class="story-item">
+            <img src="https://via.placeholder.com/150" alt="История 1" />
+            <span>Друг 1</span>
+        </li>
+        <li class="story-item">
+            <img src="https://via.placeholder.com/150" alt="История 2" />
+            <span>Друг 2</span>
+        </li>
+        <li class="story-item">
+            <img src="https://via.placeholder.com/150" alt="История 3" />
+            <span>Друг 3</span>
+        </li>
+        <li class="story-item">
+            <img src="https://via.placeholder.com/150" alt="История 4" />
+            <span>Друг 4</span>
+        </li>
+        <li class="story-item">
+            <img src="https://via.placeholder.com/150" alt="История 5" />
+            <span>Друг 5</span>
+        </li>
+    </ul>
+</section>
 
-        <h2>Недавние видео:</h2>
-        <ul>
-            <% if (videos && videos.length > 0) { %>
-                <% videos.forEach(video => { %>
-                    <li>
-                        <strong><%= video.userId.username %></strong>:
-                        <video controls>
-                            <source src="<%= video.videoUrl %>" type="video/mp4">
-                            Ваш браузер не поддерживает видео.
-                        </video>
-                        <p>Создан: <%= new Date(video.createdAt).toLocaleString() %></p>
-                    </li>
-                <% }) %>
-            <% } else { %>
-                <li>Нет доступных видео.</li>
-            <% } %>
-        </ul>
+        <section class="content">
+            <h2>Посты от ваших друзей:</h2>
+            <ul id="posts-list"></ul>
+        </section>
+    </main>
+
+    <!-- Модальное окно для изображения -->
+    <div id="imageModal" class="modal">
+        <span class="close" onclick="closeImage()">&times;</span>
+        <img class="modal-content" id="modalImage" />
+    </div>
+
+    <!-- Модальное окно для загрузки видео -->
+    <div id="uploadVideoModal" class="upload-video-modal">
+        <div class="upload-video-content">
+            <span class="upload-video-close" onclick="closeUploadModal()">&times;</span>
+            <h2>Создать историю</h2>
+            <input type="file" id="videoInput" accept="video/*" style="width: 100%;"/>
+            <button id="uploadVideoBtn" class="btn btn-primary mt-3">Загрузить видео</button>
+        </div>
     </div>
 
     <footer>
         <p>&copy; 2023 Ваш Ресурс</p>
     </footer>
-    <script src="/socket.io/socket.io.js"></script>
-    <script src="/js/callManager.js"></script>
+
     <script>
-        async function updateNotificationCount() {
-    try {
-        const response = await fetch('/api/unread-notifications');
-        const data = await response.json();
+        document.getElementById('create-story-btn').addEventListener('click', () => {
+            document.getElementById('uploadVideoModal').style.display = 'block';
+        });
 
-        const notificationBadge = document.getElementById('notification-count');
-        notificationBadge.textContent = data.totalCount || 0; // Установите количество уведомлений
-
-        // Обработка входящих заявок в друзья
-        const requestsList = document.getElementById('friend-requests-list');
-        requestsList.innerHTML = ''; // Очистить список перед обновлением
-        if (data.friendRequests && data.friendRequests.length > 0) {
-            data.friendRequests.forEach(request => {
-                requestsList.innerHTML += `<li>${request.from} отправил вам запрос в друзья. <button onclick="acceptRequest('${request.id}')">Принять</button> <button onclick="declineRequest('${request.id}')">Отклонить</button></li>`;
-            });
-        } else {
-            requestsList.innerHTML = '<li>Нет новых запросов в друзья.</li>';
+        function closeUploadModal() {
+            document.getElementById('uploadVideoModal').style.display = 'none';
         }
-    } catch (err) {
-        console.error('Ошибка загрузки количества уведомлений:', err);
+
+        document.getElementById('uploadVideoBtn').addEventListener('click', async () => {
+            const fileInput = document.getElementById('videoInput');
+            const file = fileInput.files[0];
+            if (!file) {
+                alert("Пожалуйста, выберите видео для загрузки.");
+                return;
+            }
+
+            const formData = new FormData();
+            formData.append('video', file);
+
+            try {
+                const response = await fetch('/api/stories', {
+                    method: 'POST',
+                    body: formData
+                });
+                if (!response.ok) throw new Error('Ошибка при загрузке истории');
+                
+                alert('История успешно загружена!');
+                closeUploadModal();
+                loadUserStories(); // Обновить список историй
+            } catch (error) {
+                console.error('Ошибка при загрузке истории:', error);
+                alert('Ошибка загрузки истории: ' + error.message);
+            }
+        });
+
+        async function loadPosts() {
+            try {
+                const response = await fetch('/api/posts');
+                if (!response.ok) throw new Error('Не удалось загрузить посты');
+                const posts = await response.json();
+                renderPosts(posts);
+            } catch (error) {
+                console.error('Ошибка:', error);
+            }
+        }
+
+        function renderPosts(posts) {
+            const postsList = document.getElementById('posts-list');
+            postsList.innerHTML = '';
+            if (posts.length > 0) {
+                posts.forEach(post => {
+                    const listItem = document.createElement('li');
+                    listItem.innerHTML = `
+                        <strong>${post.userId?.username || 'Неизвестный'}</strong>
+                        <p>${post.content || ''}</p>
+                        ${post.videoUrl ? `<video controls src="${post.videoUrl}" class="post-image"></video>` : ''}
+                        <div class="button-group">
+                            <button onclick="likePost('${post._id}')" class="btn btn-secondary">👍 Like <span>${post.likes || 0}</span></button>
+                            <button onclick="sharePost('${post._id}')" class="btn btn-secondary">📤 Share</button>
+                            <button onclick="commentPost('${post._id}')" class="btn btn-secondary">💬 Comment</button>
+                        </div>
+                    `;
+                    postsList.appendChild(listItem);
+                });
+            } else {
+                postsList.innerHTML = '<li>Нет постов от ваших друзей.</li>';
+            }
+        }
+
+        function openImage(src) {
+            const modal = document.getElementById("imageModal");
+            const modalImg = document.getElementById("modalImage");
+            modal.style.display = "block";
+            modalImg.src = src;
+        }
+
+        function closeImage() {
+            const modal = document.getElementById("imageModal");
+            modal.style.display = "none";
+        }
+
+        // Загрузка историй от друзей
+        async function loadUserStories() {
+    const userId = '<%= currentUser._id %>'; // Получите ID текущего пользователя
+    try {
+        const response = await fetch(`/api/stories?userId=${userId}`);
+        if (!response.ok) throw new Error('Не удалось загрузить истории');
+        const stories = await response.json();
+        console.log("Истории пользователя:", stories); // Проверка данных
+        renderStories(stories);
+    } catch (error) {
+        console.error('Ошибка при загрузке историй:', error);
     }
 }
+
+function renderStories(stories) {
+    const storiesList = document.getElementById('stories-list');
+    storiesList.innerHTML = '';
+    
+    if (stories.length > 0) {
+        stories.forEach(story => {
+            const listItem = document.createElement('li');
+            listItem.innerHTML = `
+                <strong>${story.userId.username || 'Неизвестный'}</strong>
+            `;
+            if (story.videoUrl) {
+                const videoElem = document.createElement('video');
+                videoElem.controls = true;
+                videoElem.src = `http://localhost:5000${story.videoUrl}`; // Если videoUrl уже содержит `/uploads/...` // Формирование полного URL
+                videoElem.addEventListener('error', (e) => {
+                    console.error('Ошибка при загрузке видео:', e);
+                });
+                listItem.appendChild(videoElem);
+            }
+            storiesList.appendChild(listItem);
+        });
+    } else {
+        storiesList.innerHTML = '<li>Нет историй от ваших друзей.</li>';
+    }
+}
+
+        // Загрузка уведомлений
+        async function loadNotifications() {
+            try {
+                const response = await fetch('/api/notifications');
+                if (!response.ok) throw new Error('Не удалось загрузить уведомления');
+                const notifications = await response.json();
+                renderNotifications(notifications);
+            } catch (error) {
+                console.error('Ошибка загрузки уведомлений:', error);
+            }
+        }
+
+        async function updateNotificationCount() {
+            try {
+                const response = await fetch('/api/unread-notifications');
+                const data = await response.json();
+
+                const notificationBadge = document.getElementById('notification-count');
+                notificationBadge.textContent = data.totalCount || 0; // Установите количество уведомлений
+
+                // Обработка входящих заявок в друзья
+                const requestsList = document.getElementById('friend-requests-list');
+                requestsList.innerHTML = ''; // Очистить список перед обновлением
+                if (data.friendRequests && data.friendRequests.length > 0) {
+                    data.friendRequests.forEach(request => {
+                        requestsList.innerHTML += `<li>${request.from} отправил вам запрос в друзья. <button onclick="acceptRequest('${request.id}')">Принять</button> <button onclick="declineRequest('${request.id}')">Отклонить</button></li>`;
+                    });
+                } else {
+                    requestsList.innerHTML = '<li>Нет новых запросов в друзья.</li>';
+                }
+            } catch (err) {
+                console.error('Ошибка загрузки количества уведомлений:', err);
+            }
+        }
 
         async function updateMessageCount() {
             try {
@@ -331,11 +655,30 @@
         setInterval(updateNotificationCount, 10000);
         // Первичное обновление
         updateNotificationCount();
-        
+
         // Обновление непрочитанных сообщений каждые 10 секунд
         setInterval(updateMessageCount, 10000);
         // Первичное обновление
         updateMessageCount();
+
+        document.addEventListener('DOMContentLoaded', () => {
+            loadPosts();
+            loadUserStories();
+            loadNotifications();
+        });
+
+
+        function renderNotifications(notifications) {
+    // Реализуйте логику отображения уведомлений, например:
+    const notificationList = document.getElementById('notification-list');  // Предположим, у вас есть <ul id="notification-list"></ul>
+    notificationList.innerHTML = '';
+    
+    notifications.forEach(notification => {
+        const listItem = document.createElement('li');
+        listItem.textContent = notification.message; // Предполагая, что у уведомлений есть поле "message"
+        notificationList.appendChild(listItem);
+    });
+}
     </script>
 </body>
 </html>

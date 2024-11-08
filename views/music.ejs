@@ -3,50 +3,123 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Музыка</title>
+    <title>Музыкальная платформа</title>
     <link rel="stylesheet" href="/path/to/your/styles.css"> <!-- Укажите свой путь к стилям -->
     <script src="/path/to/your/scripts.js" defer></script> <!-- Укажите свой путь к скриптам -->
 </head>
 <body>
-    <h1>Музыкальная страница</h1>
+    <header>
+        <h1>Музыкальная платформа</h1>
+        <nav>
+            <select id="sourceSelect">
+                <option value="spotify">Spotify</option>
+                <option value="youtube">YouTube</option>
+                <option value="lastfm">Last.fm</option>
+                <!-- Добавьте дополнительные источники по необходимости -->
+            </select>
+            <input type="text" id="searchInput" placeholder="Поиск по жанру, артисту или стране" />
+            <button id="searchButton">Поиск</button>
+        </nav>
+    </header>
 
-    <section id="music-list">
-        <h2>Музыка</h2>
-        <ul>
-            <% music.forEach(function(track) { %>
-                <li>
-                    <strong><%= track.title %></strong> - <%= track.artist %>
-                    <audio controls>
-                        <source src="<%= track.audioUrl %>" type="audio/mpeg">
-                        Ваш браузер не поддерживает аудиоплеер.
-                    </audio>
-                </li>
-            <% }); %>
-        </ul>
-    </section>
+    <main>
+        <section id="music-list">
+            <h2>Музыка</h2>
+            <ul id="musicListItems"></ul>
+        </section>
 
-    <section id="top-charts">
-        <h2>Топ-чарты</h2>
-        <ul>
-            <% topCharts.forEach(function(song) { %>
-                <li>
-                    <strong><%= song.title %></strong> - <%= song.artist %>
-                </li>
-            <% }); %>
-        </ul>
-    </section>
+        <section id="downloaded-playlist">
+            <h2>Скаченные треки</h2>
+            <ul id="downloadedTracksListItems"></ul>
+            <button id="exportPlaylistButton">Экспортировать плейлист</button>
+        </section>
+    </main>
 
-    <section id="recommendations">
-        <h2>Рекомендации</h2>
-        <ul>
-            <% recommendations.forEach(function(song) { %>
-                <li>
-                    <strong><%= song.title %></strong> - <%= song.artist %>
-                </li>
-            <% }); %>
-        </ul>
-    </section>
+    <footer>
+        <p>© 2023 Музыкальная платформа</p>
+    </footer>
+
     <script src="/socket.io/socket.io.js"></script>
     <script src="/js/callManager.js"></script>
+    <script>
+        const downloadedTracks = [];
+
+        document.getElementById('searchButton').addEventListener('click', function() {
+            const query = document.getElementById('searchInput').value;
+            const selectedSource = document.getElementById('sourceSelect').value;
+            searchMusic(query, selectedSource);
+        });
+
+        function searchMusic(query, source) {
+            console.log("Поиск по запросу:", query, "Источник:", source);
+
+            // Пример AJAX запроса к серверу для поиска в зависимости от выбранного источника
+            fetch(`/search?query=${encodeURIComponent(query)}&source=${source}`)
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error('Сеть ответила с ошибкой');
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    // Обработайте и отобразите результаты поиска
+                    console.log("Результаты поиска:", data);
+                    updateMusicList(data.music); // предполагаем, что вы получите массив музыки
+                })
+                .catch(error => {
+                    console.error('Ошибка при выполнении поиска:', error);
+                });
+        }
+
+        function updateMusicList(music) {
+            const musicListItems = document.getElementById('musicListItems');
+            musicListItems.innerHTML = ''; // Очистить предыдущие элементы списка
+
+            music.forEach(track => {
+                const listItem = document.createElement('li');
+                listItem.className = 'music-item';
+                listItem.innerHTML = `
+                    <strong>${track.title}</strong> - ${track.artist}
+                    <audio controls>
+                        <source src="${track.audioUrl}" type="audio/mpeg">
+                        Ваш браузер не поддерживает аудиоплеер.
+                    </audio>
+                    <button onclick="addToPlaylist('${track.audioUrl}', '${track.title}')">Добавить в плейлист</button>
+                `;
+                musicListItems.appendChild(listItem);
+            });
+        }
+
+        function addToPlaylist(audioUrl, title) {
+            if (!downloadedTracks.includes(audioUrl)) {
+                downloadedTracks.push(audioUrl);
+                const downloadedTracksList = document.getElementById('downloadedTracksListItems');
+                const listItem = document.createElement('li');
+                listItem.innerHTML = `
+                    <strong>${title}</strong>
+                    <audio controls>
+                        <source src="${audioUrl}" type="audio/mpeg">
+                        Ваш браузер не поддерживает аудиоплеер.
+                    </audio>
+                `;
+                downloadedTracksList.appendChild(listItem);
+                console.log(`Трек "${title}" добавлен в плейлист!`);
+            } else {
+                alert('Этот трек уже добавлен в плейлист.');
+            }
+        }
+
+        document.getElementById('exportPlaylistButton').addEventListener('click', () => {
+            const exportData = downloadedTracks.map((trackUrl, index) => `Трек ${index + 1}: ${trackUrl}`).join('\n');
+            const blob = new Blob([exportData], { type: 'text/plain' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'playlist.txt'; // Имя файла для экспорта
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+        });
+    </script>
 </body>
 </html>

@@ -9,6 +9,11 @@ const bcrypt = require('bcryptjs'); // Используйте bcryptjs вмес�
 const http = require('http');
 const socketIo = require('socket.io');
 
+const axios = require('axios');
+const Story = require('./models/Story');
+
+const ffmpeg = require('fluent-ffmpeg');
+
 const fs = require('fs');
 
 const router = express.Router();
@@ -16,7 +21,7 @@ const User = require('./models/User'); // Импортируйте только 
 const Call = require('./models/Call'); 
 const callsRouter = require('./routes/calls');
 const Music = require('./models/music'); // или путь к вашей модели
-const Video = require('./models/video'); // Укажите правильный путь к вашей модели
+const Video = require('./models/Video.js'); // Укажите правильный путь к вашей модели
 const Notification = require('./models/Notification'); // Измените путь, если необходимо
 
 const GroupChat = require('./models/GroupChat');
@@ -43,17 +48,17 @@ const storage = multer.diskStorage({
 
 const upload = multer({ 
     storage,
-    limits: { fileSize: 5 * 1024 * 1024 }, // Ограничиваем размер файла до 5 МБ
+    limits: { fileSize: 100 * 1024 * 1024 }, // Ограничиваем размер файла до 5 МБ
     fileFilter: (req, file, cb) => {
-        // Проверяем тип файла
-        const filetypes = /jpeg|jpg|png|gif/;
+        // Допустимые расширения для изображений и видео
+        const filetypes = /jpeg|jpg|png|gif|mp4|mov|avi|webm/;
         const mimetype = filetypes.test(file.mimetype);
         const extname = filetypes.test(path.extname(file.originalname).toLowerCase());
 
         if (mimetype && extname) {
-            return cb(null, true);
+            return cb(null, true); // Файл подходит
         }
-        cb('Ошибка: Файл должен быть изображения (jpeg, jpg, png, gif)');
+        cb('Ошибка: Файл должен быть изображением (jpeg, jpg, png, gif) или видео (mp4, mov, avi)');
     }
 });
 
@@ -83,7 +88,7 @@ const io = socketIo(server); // Инициализация Socket.IO
 
 // Настройка CORS
 const cors = require('cors');
-
+const uploadPath = path.join(__dirname, 'profile', 'uploads');
 // Настройка CORS для вашего сервера
 app.use(cors({
     origin: 'https://social-network1.onrender.com', // замените на ваш клиентский домен
@@ -93,7 +98,7 @@ app.use(cors({
 
 
 // Определение статической папки для загрузок
-app.use('/profile/uploads', express.static(path.join(__dirname, '/profile/uploads')));
+
 
 passport.serializeUser((user, done) => {
     done(null, user.id);
@@ -129,16 +134,71 @@ app.use((req, res, next) => {
     next();
 });
 // Подключение вашего роутера
+// Обработка загрузки видео
+app.post('/upload', upload.single('video'), (req, res) => {
+    res.send('Файл успешно загружен!');
+});
 
+// Чтобы обслуживать загруженные файлы
+app.use('/uploads', express.static(uploadPath));
+
+
+// Отдаём статические файлы из папки uploads
+app.use('/profile/uploads', express.static(uploadPath));
+
+// Обработка других маршрутов
+app.get('/', (req, res) => {
+    res.send('Добро пожаловать на главную страницу');
+});
 // Endpoint для загрузки изображений
 // Обработчик для загрузки изображений
-app.post('/upload', upload.single('image'), (req, res) => {
-    if (!req.file) {
-        return res.status(400).send('Ошибка: Файл не был загружен.');
+app.post('/upload', upload.fields([
+    { name: 'videos', maxCount: 10 },
+    { name: 'audio', maxCount: 10 }
+]), (req, res) => {
+    const uploadedFiles = req.files;
+
+    if (!uploadedFiles.videos && !uploadedFiles.audio) {
+        return res.status(400).send('Нет файлов для загрузки.');
     }
-    const filePath = `uploads/${req.file.filename}`; // Сохраним относительный путь
-    res.send({ path: filePath });
+
+    const filesInfo = {
+        videoFiles: uploadedFiles.videos ? uploadedFiles.videos.map(file => `uploads/${file.filename}`) : [],
+        audioFiles: uploadedFiles.audio ? uploadedFiles.audio.map(file => `uploads/${file.filename}`) : [],
+    };
+
+    res.json({
+        message: 'Файлы успешно загружены',
+        files: filesInfo
+    });
 });
+
+// Например, это может быть внутри обработчика маршрута
+// Обработчик маршрута для загрузки медиафайлов
+// Обработчик маршрута для загрузки медиафайлов
+app.post('/upload/media', upload.fields([{ name: 'videos' }, { name: 'audio' }]), (req, res) => {
+    if (req.files) {
+        const files = (req.files.videos || []).concat(req.files.audio || []);
+        const fileInfo = files.map(file => {
+            // Убедитесь, что у вас нет лишнего слеша в URL
+            const url = `/profile/uploads/${encodeURIComponent(file.filename)}`;
+
+            return {
+                name: file.originalname,
+                path: url,
+                type: file.mimetype
+            };
+        });
+
+        return res.json({
+            message: 'Файлы успешно загружены',
+            files: fileInfo
+        });
+    }
+    return res.status(400).json({ message: 'Ошибка загрузки файлов.' });
+});
+
+
 
 
 
@@ -258,24 +318,40 @@ app.get('/home', isAuthenticated, async (req, res) => {
     let users = [];
     let music = [];
     let videos = [];
+    let posts = [];
+    let stories = [];
 
     try {
         // Получаем текущего пользователя с его подписками
         const currentUser = await User.findById(userId).populate('subscriptions');
 
+        // Проверяем, что есть подписки
+        console.log('Subscriptions:', currentUser.subscriptions);
+
         // Получаем посты от друзей (подписок текущего пользователя)
-        const posts = await Post.find({
-            userId: { $in: currentUser.subscriptions }
+        posts = await Post.find({
+            userId: { $in: currentUser.subscriptions.map(sub => sub._id) } // Извлекаем идентификаторы
         })
         .populate('userId')
         .sort({ createdAt: -1 });
 
+        // Проверка постов
+        console.log('Posts:', posts);
+
+        // Получаем истории от друзей (подписок текущего пользователя)
+        stories = await Story.find({
+            userId: { $in: currentUser.subscriptions.map(sub => sub._id) },
+            expiresAt: { $gt: new Date() }
+        }).populate('userId');
+
+        // Проверка историй
+        console.log('Stories:', stories);
+
         // Поиск пользователей по имени, если строка поиска не пустая
-        if (search.length > 0) { // только если длина строки поиска больше 0
-            users = await User.find({ username: new RegExp(`^${search}`, 'i') }); // Изменяем на ^ (начало строки)
+        if (search.length > 0) {
+            users = await User.find({ username: new RegExp(`^${search}`, 'i') });
         } else {
-            // Если строка поиска пустая, можно получить всех пользователей (исключая текущего)
-            users = await User.find({ _id: { $ne: userId } });
+            users = await User.find({ _id: { $ne: userId } }); // Исключение текущего пользователя
         }
 
         // Получаем музыкальные треки для текущего пользователя
@@ -287,6 +363,7 @@ app.get('/home', isAuthenticated, async (req, res) => {
         // Передаем данные в шаблон
         res.render('home', {
             posts,
+            stories, // Добавляем истории в шаблон
             currentUser,
             users,
             search,
@@ -762,6 +839,21 @@ app.get('/edit-video', (req, res) => {
 });
 
 
+app.get('/send-message/:recipientId', (req, res) => {
+    const recipientId = req.params.recipientId;
+
+    // Проверяем, что пользователь аутентифицирован
+    if (!req.user || !req.user.id) {
+        return res.status(403).json({ message: 'Forbidden: User not authenticated.' });
+    }
+
+    // Отправляем рендеринг страницы отправки сообщения
+    res.render('send-message', {
+        recipientId: recipientId,
+        user: req.user
+    });
+});
+
 // Получение сообщений между пользователями
 app.get('/messages/:recipientId', async (req, res) => {
     const recipientId = req.params.recipientId;
@@ -772,6 +864,12 @@ app.get('/messages/:recipientId', async (req, res) => {
     }
 
     try {
+        // Проверяем, существует ли получатель
+        const recipientExists = await User.exists({ _id: recipientId });
+        if (!recipientExists) {
+            return res.status(404).json({ message: 'Recipient not found.' });
+        }
+
         // Получаем количество непрочитанных сообщений
         const unreadCount = await Message.countDocuments({
             receiverId: req.user.id,
@@ -786,12 +884,12 @@ app.get('/messages/:recipientId', async (req, res) => {
             ]
         }).populate('senderId receiverId');
 
-        // Проверяем, если сообщения найдены
-        if (!messages || messages.length === 0) {
-            return res.status(404).json({ message: 'No messages found.' });
+        // Если сообщений нет, создадим пустой массив
+        if (!messages) {
+            messages = [];
         }
 
-        // Обновляем статус сообщений как "прочитано", если они отправлены к текущему пользователю
+        // Обновляем статус сообщений как "прочитано" для новых сообщений
         await Message.updateMany(
             { senderId: recipientId, receiverId: req.user.id, isRead: false },
             { $set: { isRead: true } }
@@ -818,7 +916,7 @@ app.get('/messages/:recipientId', async (req, res) => {
             messages: formattedMessages,
             recipientId: recipientId,
             user: req.user,
-            unreadCount: unreadCount // Передаем количество непрочитанных сообщений
+            unreadCount: unreadCount
         });
     } catch (error) {
         console.error('Error fetching messages:', error);
@@ -826,22 +924,41 @@ app.get('/messages/:recipientId', async (req, res) => {
     }
 });
 
-
-// Отправка сообщения
 app.post('/send-message/:recipientId', async (req, res) => {
     const recipientId = req.params.recipientId;
     const content = req.body.content;
 
+    // Проверяем, что пользователь аутентифицирован
+    if (!req.user || !req.user.id) {
+        return res.status(403).json({ message: 'Forbidden: User not authenticated.' });
+    }
+
+    // Проверка на наличие содержимого сообщения
+    if (!content || typeof content !== 'string' || content.trim().length === 0) {
+        return res.status(400).json({ message: 'Message content is required.' });
+    }
+
     try {
+        // Проверяем, существует ли получатель
+        const recipientExists = await User.exists({ _id: recipientId });
+        if (!recipientExists) {
+            return res.status(404).json({ message: 'Recipient not found.' });
+        }
+
+        // Создаем новое сообщение
         const message = new Message({
-            senderId: req.user.id, // текущий пользователь
+            senderId: req.user.id,
             receiverId: recipientId,
-            content: content,
-            isRead: false // по умолчанию - не прочитано
+            content: content.trim(),
+            isRead: false
         });
 
+        // Сохраняем сообщение в базе данных
         await message.save();
-        res.redirect(`/messages/${recipientId}`); // Перенаправление на переписку с этим получателем
+        console.log(`Message sent from ${req.user.id} to ${recipientId}: ${content}`);
+
+        // Перенаправление на переписку с получателем
+        res.redirect(`/messages/${recipientId}`);
     } catch (error) {
         console.error('Error sending message:', error);
         res.status(500).json({ message: 'An error occurred while sending the message.' });
@@ -1255,32 +1372,79 @@ app.delete('/api/delete-post/:postId', async (req, res) => {
     }
 });
 
-// Музыкальная страница
-app.get('/music', (req, res) => {
-    // Вам может понадобиться загрузить данные о музыке, чартах и рекомендациях из БД
-    const musicData = [
-        { title: "Song 1", artist: "Artist 1", audioUrl: "path/to/song1.mp3" },
-        { title: "Song 2", artist: "Artist 2", audioUrl: "path/to/song2.mp3" },
-        { title: "Song 3", artist: "Artist 3", audioUrl: "path/to/song3.mp3" },
-    ];
 
-    const topCharts = [
-        { title: "Hit Song 1", artist: "Famous Artist 1" },
-        { title: "Hit Song 2", artist: "Famous Artist 2" },
-        { title: "Hit Song 3", artist: "Famous Artist 3" },
-    ];
 
-    const recommendations = [
-        { title: "Recommended Song 1", artist: "Recommender 1" },
-        { title: "Recommended Song 2", artist: "Recommender 2" },
-        { title: "Recommended Song 3", artist: "Recommender 3" },
-    ];
-
-    res.render('music', {
-        music: musicData,
-        topCharts: topCharts,
-        recommendations: recommendations,
+// Функция для парсинга результатов Google
+async function parseGoogleSearch(query) {
+    const url = `https://www.google.com/search?q=${encodeURIComponent(query)}`;
+    const { data } = await axios.get(url);
+    const $ = cheerio.load(data);
+    
+    const results = [];
+    $('h3').each((index, element) => {
+        results.push($(element).text());
     });
+    return results;
+}
+
+// Функция для парсинга результатов Яндекса
+async function parseYandexSearch(query) {
+    const url = `https://yandex.ru/search/?text=${encodeURIComponent(query)}`;
+    const { data } = await axios.get(url);
+    const $ = cheerio.load(data);
+    
+    const results = [];
+    $('h2 > a').each((index, element) => {
+        results.push($(element).text());
+    });
+    return results;
+}
+
+// Обработка маршрута для поиска музыки
+app.get('/search', async (req, res) => {
+    const { query } = req.query;
+
+    try {
+        const googleResults = await parseGoogleSearch(query);
+        const yandexResults = await parseYandexSearch(query);
+        
+        res.json({ googleResults, yandexResults });
+    } catch (error) {
+        console.error('Ошибка получения данных:', error.message);
+        res.status(500).send('Ошибка сервера');
+    }
+});
+// Основной обработчик маршрута
+app.get('/music', async (req, res) => {
+    try {
+        const artist = "Beatles"; // Замените на нужного артиста для Last.fm
+        const query = 'music video'; // Запрос для поиска на YouTube
+
+        // Получаем данные о треках из Spotify
+        const spotifyTracks = await getSpotifyTopTracks();
+
+        // Получаем топовые треки из Last.fm
+        const lastfmTopTracks = await getLastfmTopTracks(artist);
+
+        // Получаем клипы из YouTube
+        const youtubeVideos = await getYoutubeVideos(query);
+
+        // Подготовка данных для рендеринга
+        const musicData = spotifyTracks.map(track => ({
+            title: track.name,
+            artist: track.artists[0].name,
+            audioUrl: track.preview_url // Будьте внимательны с полем preview_url, может быть не у всех треков
+        }));
+
+        res.render('music', {
+            spotifyTracks: musicData,
+            lastfmTopTracks: lastfmTopTracks,
+            youtubeVideos: youtubeVideos,
+        });
+    } catch (error) {
+        console.error('Ошибка получения данных:', error.message);
+        res.status(500).send("Ошибка сервера при получении данных о музыке");
+    }
 });
 
 // Пример данных для просмотра видео
@@ -1901,6 +2065,178 @@ app.post('/group/:id/message', async (req, res) => {
 });
 
 
+// Страница загрузки видео
+app.get('/upload-videos',isAuthenticated, (req, res) => {
+    res.render('upload-videos'); // Отобразите соответствующий шаблон
+});
+
+// Обработчик для сохранения видео
+app.post('/api/upload-video', isAuthenticated, upload.single('video'), (req, res) => {
+    const userId = req.user ? req.user.id : null;
+
+    if (!userId) {
+        return res.status(400).send('Ошибка: userId не определен.');
+    }
+
+    const videoUrl = `/uploads/${req.file.filename}`;
+
+    // Здесь добавляем код для сохранения истории
+    const newStory = new Story({
+        userId: userId,
+        videoUrl: videoUrl,
+        status: 'public',
+        viewers: [],
+        expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000)
+    });
+
+    newStory.save()
+        .then(story => {
+            console.log('История сохранена:', story);
+            res.status(200).send('История успешно сохранена');
+        })
+        .catch(err => {
+            console.error('Ошибка при сохранении истории:', err);
+            res.status(500).send('Ошибка при сохранении истории');
+        });
+});
+
+// Создание новой истории
+// Обработка загрузки видео
+app.post('/api/videos', upload.array('videos'), async (req, res) => {
+    const files = req.files;
+
+    if (!files || files.length === 0) {
+        return res.status(400).json({ error: 'Не выбрано ни одного видео.' });
+    }
+
+    try {
+        const videoPromises = files.map(async (file) => {
+            const newVideo = new Video({
+                userId: req.session.userId, // Предполагаем, что userId хранится в сессии
+                path: file.path,
+                createdAt: new Date()
+            });
+            return await newVideo.save();
+        });
+
+        await Promise.all(videoPromises);
+        res.status(201).json({ message: 'Видео успешно загружены.' });
+    } catch (error) {
+        console.error('Ошибка при загрузке видео:', error);
+        res.status(500).json({ error: 'Ошибка при загрузке видео.' });
+    }
+});
+
+// Страница создания истории
+
+// Обработка создания истории
+app.post('/api/stories', isAuthenticated, async (req, res) => {
+    console.log("Текущий пользователь:", req.user); // Логируем данные пользователя
+    const videoUrl = req.body.videoUrl; // Получаем videoUrl из тела запроса
+    const userId = req.user ? req.user.id : null; // Получаем userId из текущего пользователя
+
+    // Проверка, что переданы userId и videoUrl
+    if (!userId) {
+        return res.status(400).json({ error: 'userId is required' });
+    }
+    if (!videoUrl) {
+        return res.status(400).json({ error: 'videoUrl is required' });
+    }
+
+    // Создание новой истории
+    const newStory = new Story({
+        userId,
+        videoUrl,
+        status: 'public', // или другое значение статуса
+        viewers: [],
+        expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000) // Например, 24 часа
+    });
+
+    try {
+        await newStory.save(); // Сохранение документа в базе данных
+        return res.status(201).json(newStory); // Возврат созданного элемента
+    } catch (error) {
+        console.error('Ошибка при сохранении истории:', error);
+        return res.status(500).json({ error: 'Ошибка сервера' });
+    }
+});
+
+app.post('/upload-history', async (req, res) => {
+    try {
+        const userId = req.user._id; // Получаем userId из сессии
+
+        // Создайте объект истории
+        const historyEntry = {
+            userId,
+            // Добавьте другие необходимые поля, например текст или идентификатор видео
+            content: req.body.content,
+            createdAt: new Date(),
+        };
+
+        const newHistory = new History(historyEntry); // Подразумевается, что у вас есть модель History
+        await newHistory.save();
+
+        res.status(201).send('История успешно загружена.');
+    } catch (error) {
+        console.error('Ошибка при загрузке истории:', error);
+        res.status(500).send('Ошибка при загрузке истории.');
+    }
+});
+app.get('/api/stories', async (req, res) => {
+    const userId = req.query.userId;
+    if (!userId) {
+        return res.status(400).json({ error: 'userId is required' });
+    }
+
+    try {
+        const stories = await Story.find({ userId: userId });
+        console.log('Stories retrieved:', stories); // Выводим истории в консоль для отладки
+        res.status(200).json(stories);
+    } catch (error) {
+        console.error('Error fetching stories:', error);
+        res.status(500).json({ error: 'Failed to fetch stories' });
+    }
+});
+app.post('/api/stories', async (req, res) => {
+    const { userId, videoUrl, status, expiresAt } = req.body;
+    const newStory = new Story({
+        userId,
+        videoUrl,
+        status,
+        expiresAt
+    });
+
+    try {
+        const savedStory = await newStory.save(); // Сохранить новую историю
+        res.status(201).json(savedStory); // Отправляем сохраненная историю
+    } catch (error) {
+        console.error('Error saving story:', error);
+        res.status(500).json({ error: 'Failed to save story' }); // Обработка ошибок
+    }
+});
+
+// Пример маршрута для получения уведомлений
+app.get('/api/notifications', (req, res) => {
+    const userId = req.query.userId; // Получить userId из запроса
+    // Логика для извлечения уведомлений пользователя
+    // Пример данных для возврата
+    const notifications = [
+        { id: 1, message: 'Уведомление 1', link: '/link1' },
+        { id: 2, message: 'Уведомление 2', link: '/link2' }
+    ];
+    
+    res.json(notifications); // Вернуть данные в формате JSON
+});
+
+// Пример маршрута для получения конкретной истории
+app.get('/story/:storyId', (req, res) => {
+    const storyId = req.params.storyId;
+    // Логика для извлечения истории по storyId
+    // Пример данных для возврата
+    const story = { id: storyId, content: 'Контент истории...' };
+    
+    res.json(story); // Вернуть данные в формате JSON
+});
 // Запуск сервера
 server.listen(PORT, () => {
     console.log(`Server running on port ${PORT}`);

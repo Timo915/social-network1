@@ -1,0 +1,407 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Видеоредактор историй</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 20px;
+            background-color: #f9f9f9;
+        }
+        h1 { color: #333; }
+        .video-container {
+            position: relative;
+            width: 640px;
+            height: 360px;
+            margin-top: 10px;
+            overflow: hidden;
+        }
+        video { width: 100%; height: 100%; }
+        #localVideo {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+        #upload-form { margin-bottom: 20px; }
+        button {
+            padding: 10px 20px;
+            font-size: 1em;
+            font-weight: bold;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            margin-top: 10px;
+            transition: background 0.3s;
+        }
+        #toggle-camera {
+            background-color: #28a745;
+            color: white;
+        }
+        #toggle-camera:hover { background-color: #218838; }
+        #publish-button { background-color: #007bff; color: white; display: none; }
+        #publish-button:hover { background-color: #0056b3; }
+        .timeline {
+            position: relative;
+            width: 640px;
+            height: 60px;
+            background: #eaeaea;
+            border: 1px solid #ccc;
+            margin-top: 10px;
+            display: flex;
+            align-items: center;
+            overflow: hidden;
+        }
+        .track {
+            position: absolute;
+            height: 100%;
+            color: white;
+            border-radius: 5px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: move;
+            user-select: none;
+            padding: 0 5px;
+            box-shadow: 1px 1px 3px rgba(0, 0, 0, 0.5);
+            transition: all 0.1s ease;
+        }
+        .track.loaded { background-color: rgba(0, 123, 255, 0.5); }
+        .track.recorded { background-color: rgba(255, 193, 7, 0.5); }
+        .track-label {
+            position: absolute;
+            background-color: rgba(0, 0, 0, 0.7);
+            color: white;
+            padding: 3px 5px;
+            border-radius: 3px;
+            bottom: 2px;
+        }
+        #totalDuration { margin-top: 20px; font-weight: bold; }
+        .scale-container { display: flex; align-items: center; margin-top: 10px; }
+        .scale-range { margin-left: 10px; }
+    </style>
+</head>
+<body>
+    <h1>Видеоредактор историй</h1>
+    <div id="message"></div>
+
+    <div class="video-container">
+        <video id="localVideo" autoplay muted></video>
+        <video id="mainVideo" controls></video>
+    </div>
+
+    <select id="cameraSelect"></select>
+    <button id="toggle-camera">Включить камеру</button>
+
+    <div id="upload-form">
+        <input type="file" id="fileInput" accept="video/*" multiple required />
+        <button id="upload-button">Загрузить медиа</button>
+    </div>
+
+    <div class="scale-container">
+        <label for="scale">Масштаб: </label>
+        <input type="range" id="scale" class="scale-range" min="1" max="5" step="0.1" value="1">
+    </div>
+
+    <div class="timeline" id="timeline"></div>
+    <div id="totalDuration">Общее время: 0 секунд</div>
+    
+    <button id="record-toggle">Начать запись</button>
+    <button id="publish-button" style="display:none;">Опубликовать</button>
+
+    <script>
+        const uploadButton = document.getElementById('upload-button');
+        const recordToggleButton = document.getElementById('record-toggle');
+        const publishButton = document.getElementById('publish-button');
+        const toggleCameraButton = document.getElementById('toggle-camera');
+        const localVideo = document.getElementById('localVideo');
+        const mainVideo = document.getElementById('mainVideo');
+        const timeline = document.getElementById('timeline');
+        const totalDurationElement = document.getElementById('totalDuration');
+        const fileInput = document.getElementById('fileInput');
+        const scaleInput = document.getElementById('scale');
+        const cameraSelect = document.getElementById('cameraSelect');
+
+        let mediaRecorder;
+        let recordedChunks = [];
+        let currentTracks = [];
+        let recording = false;
+        let currentStream;
+
+        async function initCamera() {
+            try {
+                const devices = await navigator.mediaDevices.enumerateDevices();
+                const videoDevices = devices.filter(device => device.kind === 'videoinput');
+
+                videoDevices.forEach(device => {
+                    const option = document.createElement('option');
+                    option.value = device.deviceId;
+                    option.textContent = device.label || `Камера ${cameraSelect.length + 1}`;
+                    cameraSelect.appendChild(option);
+                });
+
+                if (videoDevices.length > 0) {
+                    startCamera(videoDevices[0].deviceId);
+                }
+
+                cameraSelect.addEventListener('change', (event) => {
+                    startCamera(event.target.value);
+                });
+            } catch (error) {
+                console.error('Ошибка при получении списка устройств:', error);
+            }
+        }
+
+        async function startCamera(deviceId) {
+            const constraints = { video: { deviceId: { exact: deviceId } }, audio: true };
+            try {
+                if (currentStream) {
+                    currentStream.getTracks().forEach(track => track.stop());
+                }
+                console.log("Запрашиваем доступ к камере...");
+                currentStream = await navigator.mediaDevices.getUserMedia(constraints);
+                localVideo.srcObject = currentStream;
+
+                mediaRecorder = new MediaRecorder(currentStream);
+                mediaRecorder.ondataavailable = (event) => {
+                    if (event.data.size > 0) recordedChunks.push(event.data);
+                };
+
+                mediaRecorder.onstop = () => {
+                    const blob = new Blob(recordedChunks, { type: 'video/webm' });
+                    const url = URL.createObjectURL(blob);
+                    recordedChunks = [];
+                    const recordedVideo = document.createElement('video');
+                    recordedVideo.src = url;
+                    recordedVideo.preload = 'metadata';
+                    recordedVideo.onloadedmetadata = () => {
+                        const duration = Math.floor(recordedVideo.duration);
+                        addTrackToTimeline(url, `Записанное видео (${duration} сек)`, true, duration);
+                    };
+                };
+
+                toggleCameraButton.textContent = 'Выключить камеру';
+                toggleCameraButton.dataset.enabled = 'true';
+            } catch (error) {
+                console.error('Ошибка при получении медиа:', error);
+                alert('Ошибка доступа к камере.');
+            }
+        }
+
+        toggleCameraButton.onclick = function() {
+            if (toggleCameraButton.dataset.enabled === 'true') {
+                if (currentStream) {
+                    currentStream.getTracks().forEach(track => track.stop());
+                    localVideo.srcObject = null;
+                    currentStream = null;
+                }
+                toggleCameraButton.textContent = 'Включить камеру';
+                toggleCameraButton.dataset.enabled = 'false';
+            } else {
+                startCamera(cameraSelect.value);
+            }
+        };
+
+        recordToggleButton.onclick = function() {
+            if (recording) {
+                mediaRecorder.stop();
+                recording = false;
+                recordToggleButton.textContent = 'Начать запись';
+                publishButton.style.display = "block"; 
+            } else {
+                if (!currentStream) {
+                    alert("Камера не работает или отключена. Пожалуйста, включите камеру.");
+                    return;
+                }
+                recordedChunks = [];
+                mediaRecorder.start();
+                recording = true;
+                recordToggleButton.textContent = 'Остановить запись';
+            }
+        };
+
+        uploadButton.onclick = function() {
+            const files = fileInput.files;
+            for (let file of files) {
+                const url = URL.createObjectURL(file);
+                const videoElement = document.createElement('video');
+                videoElement.src = url;
+                videoElement.preload = 'metadata';
+
+                videoElement.onloadedmetadata = function() {
+                    const duration = Math.floor(videoElement.duration);
+                    addTrackToTimeline(url, file.name, false, duration);
+                };
+            }
+        };
+
+        function addTrackToTimeline(url, name, isRecorded, duration) {
+            const trackDiv = document.createElement('div');
+            trackDiv.classList.add('track');
+            trackDiv.dataset.url = url;
+            trackDiv.dataset.isRecorded = isRecorded;
+            trackDiv.classList.add(isRecorded ? 'recorded' : 'loaded');
+
+            const scaleFactor = Number(scaleInput.value);
+            let leftPosition = 0;
+
+            // Если это записанный трек, смещаем его на общее время предыдущих треков
+            if (isRecorded) {
+                leftPosition = currentTracks.reduce((sum, track) => sum + track.duration, 0) * scaleFactor * 10;
+            } else {
+                leftPosition = currentTracks.reduce((sum, track) => sum + track.duration, 0) * scaleFactor * 10;
+            }
+
+            trackDiv.style.width = `${duration * scaleFactor * 10}px`;
+            trackDiv.style.left = `${leftPosition}px`; // Устанавливаем позицию
+            trackDiv.style.pointerEvents = 'auto'; // Добавляем возможность клика по каждому треку
+
+            const trackLabel = document.createElement('div');
+            trackLabel.className = 'track-label';
+            trackLabel.textContent = `${name} (${duration} сек)`;
+            trackDiv.appendChild(trackLabel);
+
+            // Добавляем событие клика для воспроизведения видео
+            trackDiv.onclick = function() {
+                mainVideo.src = url;
+                mainVideo.play();
+            };
+
+            timeline.appendChild(trackDiv);
+            currentTracks.push({ url, name, duration, isRecorded });
+            updateTotalDuration(); // Обновляем общее время
+        }
+
+        function updateTotalDuration() {
+            const totalDuration = currentTracks.reduce((sum, track) => sum + track.duration, 0);
+            totalDurationElement.textContent = `Общее время: ${totalDuration} секунд`;
+        }
+
+        publishButton.onclick = function() {
+    let videoBlob;
+
+    // Проверка на записанные куски
+    if (recordedChunks.length === 0) {
+        if (currentTracks.length === 0) {
+            alert("Нет видео для публикации!");
+            return;
+        } else {
+            alert("Нет записанных видео, но загруженные будут опубликованы.");
+            
+            // Здесь мы предполагаем, что currentTracks содержит данные о загруженных видео
+            // Вам нужно будет реализовать логику по созданию Blob из текущих треков
+
+            // В качестве демонстрации здесь как можно было бы это сделать (предположим, currentTracks - это массив с URL):
+            const videoUrls = currentTracks.map(track => track.url); // Зависит от вашей реализац 
+
+            // Для примера, вы можете использовать MediaStream и MediaRecorder для создания видеоблока, если это актуально
+            // Конечно, потребуется иная логика, если ваши tracks - это другой формат.
+
+            // Пример создания Blob (зависит от фактических данных в currentTracks):
+            const blobs = []; // Массив для Blob
+            videoUrls.forEach(url => {
+                blobs.push(fetch(url).then(response => response.blob())); // Получаем Blob для каждого URL
+            });
+
+            Promise.all(blobs).then(blobArray => {
+                const combinedBlob = new Blob(blobArray, { type: 'video/webm' }); // Создаем общий Blob из всех
+                uploadVideo(combinedBlob);
+            });
+        }
+    } else {
+        // Код для обработки recordedChunks...
+        videoBlob = new Blob(recordedChunks, { type: 'video/webm' });
+        uploadVideo(videoBlob);
+    }
+};
+
+async function loadCurrentUser() {
+    try {
+        const response = await fetch('/api/current-user', { credentials: 'include' });
+        if (!response.ok) throw new Error('Не удалось загрузить текущего пользователя');
+        
+        const user = await response.json();
+        console.log("Данные пользователя:", user);
+        return user;
+    } catch (error) {
+        console.error("Ошибка загрузки текущего пользователя:", error.message);
+        return null;
+    }
+}
+
+async function uploadVideo(videoBlob) {
+    const currentUser = await loadCurrentUser(); // Загружаем текущего пользователя
+    const currentUserId = currentUser ? currentUser._id : null; // Используйте `_id`
+
+    console.log("Полученный userId:", currentUserId);
+    if (!currentUserId) {
+        console.error("userId не определен. Загрузка видео невозможна.");
+        return;
+    }
+
+    const formData = new FormData();
+    formData.append('video', videoBlob, 'story.mp4');
+    formData.append('userId', currentUserId); // Передаем userId
+
+    // Отправим данные на сервер
+    try {
+        const response = await fetch('/api/upload-video', {
+            method: 'POST',
+            body: formData,
+            credentials: 'include' // Убедитесь, что отправка куки происходит, если на сервере используется аутентификация
+        });
+
+        if (!response.ok) {
+            throw new Error('Ошибка при загрузке видео: ' + response.statusText);
+        }
+
+        console.log('Видео успешно загружено!');
+        clearAfterPublish(); // Очистка после успешной загрузки
+    } catch (error) {
+        console.error("Ошибка загрузки видео:", error);
+    }
+}
+
+// Обновленный вызов функции загрузки видео
+async function handleUpload(videoBlob) {
+    // Загружаем текущего пользователя
+    const currentUser = await loadCurrentUser();
+    const currentUserId = currentUser ? currentUser.id : null;
+
+    if (currentUserId) {
+        // Продолжать загрузку видео
+        await uploadVideo(videoBlob, currentUserId);
+    } else {
+        alert("Не удалось получить текущего пользователя. Пожалуйста, проверьте, авторизованы ли вы.");
+    }
+}
+
+
+        function clearAfterPublish() {
+            recordedChunks = [];
+            publishButton.style.display = "none";
+            timeline.innerHTML = '';
+            currentTracks = [];
+            totalDurationElement.textContent = "Общее время: 0 секунд";
+        }
+
+        scaleInput.oninput = function() {
+            currentTracks.forEach((track, index) => {
+                const trackDiv = timeline.children[index];
+                const scaleFactor = Number(scaleInput.value);
+                trackDiv.style.width = `${track.duration * scaleFactor * 10}px`;
+                trackDiv.style.left = `${index * 10 * scaleFactor}px`;  // Обновляем позицию
+            });
+        };
+
+        initCamera();
+    </script>
+</body>
+</html>
