@@ -21,7 +21,7 @@ const User = require('./models/User'); // Импортируйте только 
 const Call = require('./models/Call'); 
 const callsRouter = require('./routes/calls');
 const Music = require('./models/music'); // или путь к вашей модели
-const Video = require('./models/Video.js'); // Укажите правильный путь к вашей модели
+
 const Notification = require('./models/Notification'); // Измените путь, если необходимо
 
 const GroupChat = require('./models/GroupChat');
