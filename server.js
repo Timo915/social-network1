@@ -21,7 +21,7 @@ const User = require('./models/User'); // Импортируйте только 
 const Call = require('./models/Call'); 
 const callsRouter = require('./routes/calls');
 const Music = require('./models/music'); // или путь к вашей модели
-const Video = require('./models/Video'); // Укажите правильный путь к вашей модели
+const Video = require('./models/video'); // без .js
 const Notification = require('./models/Notification'); // Измените путь, если необходимо
 
 const GroupChat = require('./models/GroupChat');
@@ -176,9 +176,9 @@ app.post('/upload', upload.fields([
 // Например, это может быть внутри обработчика маршрута
 // Обработчик маршрута для загрузки медиафайлов
 // Обработчик маршрута для загрузки медиафайлов
-app.post('/upload/media', upload.fields([{ name: 'videos' }, { name: 'audio' }]), (req, res) => {
+app.post('/upload/media', upload.fields([{ name: 'video' }, { name: 'audio' }]), (req, res) => {
     if (req.files) {
-        const files = (req.files.videos || []).concat(req.files.audio || []);
+        const files = (req.files.video || []).concat(req.files.audio || []);
         const fileInfo = files.map(file => {
             // Убедитесь, что у вас нет лишнего слеша в URL
             const url = `/profile/uploads/${encodeURIComponent(file.filename)}`;
