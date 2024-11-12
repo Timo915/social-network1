@@ -18,10 +18,14 @@ const fs = require('fs');
 
 
 const serviceAccount = require("./serviceAccountKey.json");// Укажите путь к вашему JSON-файлу сервисного аккаунта
+const admin = require('firebase-admin');
 
 admin.initializeApp({
-  credential: admin.credential.cert(serviceAccount),
-  storageBucket: "socialhumon.appspot.com" // Замените на ваш Storage Bucket
+    credential: admin.credential.cert({
+        projectId: process.env.GOOGLE_PROJECT_ID,
+        clientEmail: process.env.GOOGLE_CLIENT_EMAIL,
+        privateKey: process.env.GOOGLE_PRIVATE_KEY.replace(/\\n/g, '\n'), // Замените `\n` на новую строку
+    }),
 });
 
 
@@ -105,16 +109,9 @@ const uploadPath = path.join(__dirname, 'profile', 'uploads');
 
 
 require('dotenv').config();
-const admin = require('firebase-admin');
 
 // Инициализация приложения Firebase с помощью учетных данных из переменных окружения
-admin.initializeApp({
-    credential: admin.credential.cert({
-        projectId: process.env.GOOGLE_PROJECT_ID,
-        clientEmail: process.env.GOOGLE_CLIENT_EMAIL,
-        privateKey: process.env.GOOGLE_PRIVATE_KEY.replace(/\\n/g, '\n'), // Замените `\n` на новую строку
-    }),
-});
+
 
 
 
