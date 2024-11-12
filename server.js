@@ -102,6 +102,22 @@ const io = socketIo(server); // Инициализация Socket.IO
 // Настройка CORS
 const cors = require('cors');
 const uploadPath = path.join(__dirname, 'profile', 'uploads');
+
+
+require('dotenv').config();
+const admin = require('firebase-admin');
+
+// Инициализация приложения Firebase с помощью учетных данных из переменных окружения
+admin.initializeApp({
+    credential: admin.credential.cert({
+        projectId: process.env.GOOGLE_PROJECT_ID,
+        clientEmail: process.env.GOOGLE_CLIENT_EMAIL,
+        privateKey: process.env.GOOGLE_PRIVATE_KEY.replace(/\\n/g, '\n'), // Замените `\n` на новую строку
+    }),
+});
+
+
+
 // Настройка CORS для вашего сервера
 app.use(cors({
     origin: 'https://social-network1.onrender.com', // замените на ваш клиентский домен
