@@ -107,7 +107,7 @@
 
     <div class="scale-container">
         <label for="scale">Масштаб: </label>
-        <input type="range" id="scale" class="scale-range" min="1" max="5" step="0.1" value="1">
+        <input type="range" id="scale" min="1" max="5" step="0.1" value="1">
     </div>
 
     <div class="timeline" id="timeline"></div>
@@ -285,104 +285,80 @@
         }
 
         publishButton.onclick = function() {
-    let videoBlob;
+            let videoBlob;
 
-    // Проверка на записанные куски
-    if (recordedChunks.length === 0) {
-        if (currentTracks.length === 0) {
-            alert("Нет видео для публикации!");
-            return;
-        } else {
-            alert("Нет записанных видео, но загруженные будут опубликованы.");
-            
-            // Здесь мы предполагаем, что currentTracks содержит данные о загруженных видео
-            // Вам нужно будет реализовать логику по созданию Blob из текущих треков
+            // Проверка на записанные куски
+            if (recordedChunks.length === 0) {
+                if (currentTracks.length === 0) {
+                    alert("Нет видео для публикации!");
+                    return;
+                } else {
+                    alert("Нет записанных видео, но загруженные будут опубликованы.");
+                    const videoUrls = currentTracks.map(track => track.url); 
 
-            // В качестве демонстрации здесь как можно было бы это сделать (предположим, currentTracks - это массив с URL):
-            const videoUrls = currentTracks.map(track => track.url); // Зависит от вашей реализац 
+                    const blobs = []; // Массив для Blob
+                    videoUrls.forEach(url => {
+                        blobs.push(fetch(url).then(response => response.blob())); // Получаем Blob для каждого URL
+                    });
 
-            // Для примера, вы можете использовать MediaStream и MediaRecorder для создания видеоблока, если это актуально
-            // Конечно, потребуется иная логика, если ваши tracks - это другой формат.
+                    Promise.all(blobs).then(blobArray => {
+                        const combinedBlob = new Blob(blobArray, { type: 'video/webm' });
+                        uploadVideo(combinedBlob);
+                    });
+                }
+            } else {
+                // Код для обработки recordedChunks...
+                videoBlob = new Blob(recordedChunks, { type: 'video/webm' });
+                uploadVideo(videoBlob);
+            }
+        };
 
-            // Пример создания Blob (зависит от фактических данных в currentTracks):
-            const blobs = []; // Массив для Blob
-            videoUrls.forEach(url => {
-                blobs.push(fetch(url).then(response => response.blob())); // Получаем Blob для каждого URL
-            });
-
-            Promise.all(blobs).then(blobArray => {
-                const combinedBlob = new Blob(blobArray, { type: 'video/webm' }); // Создаем общий Blob из всех
-                uploadVideo(combinedBlob);
-            });
-        }
-    } else {
-        // Код для обработки recordedChunks...
-        videoBlob = new Blob(recordedChunks, { type: 'video/webm' });
-        uploadVideo(videoBlob);
-    }
-};
-
-async function loadCurrentUser() {
-    try {
-        const response = await fetch('/api/current-user', { credentials: 'include' });
-        if (!response.ok) throw new Error('Не удалось загрузить текущего пользователя');
-        
-        const user = await response.json();
-        console.log("Данные пользователя:", user);
-        return user;
-    } catch (error) {
-        console.error("Ошибка загрузки текущего пользователя:", error.message);
-        return null;
-    }
-}
-
-async function uploadVideo(videoBlob) {
-    const currentUser = await loadCurrentUser(); // Загружаем текущего пользователя
-    const currentUserId = currentUser ? currentUser._id : null; // Используйте `_id`
-
-    console.log("Полученный userId:", currentUserId);
-    if (!currentUserId) {
-        console.error("userId не определен. Загрузка видео невозможна.");
-        return;
-    }
-
-    const formData = new FormData();
-    formData.append('video', videoBlob, 'story.mp4');
-    formData.append('userId', currentUserId); // Передаем userId
-
-    // Отправим данные на сервер
-    try {
-        const response = await fetch('/api/upload-video', {
-            method: 'POST',
-            body: formData,
-            credentials: 'include' // Убедитесь, что отправка куки происходит, если на сервере используется аутентификация
-        });
-
-        if (!response.ok) {
-            throw new Error('Ошибка при загрузке видео: ' + response.statusText);
+        async function loadCurrentUser() {
+            try {
+                const response = await fetch('/api/current-user', { credentials: 'include' });
+                if (!response.ok) throw new Error('Не удалось загрузить текущего пользователя');
+                
+                const user = await response.json();
+                console.log("Данные пользователя:", user);
+                return user;
+            } catch (error) {
+                console.error("Ошибка загрузки текущего пользователя:", error.message);
+                return null;
+            }
         }
 
-        console.log('Видео успешно загружено!');
-        clearAfterPublish(); // Очистка после успешной загрузки
-    } catch (error) {
-        console.error("Ошибка загрузки видео:", error);
-    }
-}
+        async function uploadVideo(videoBlob) {
+            const currentUser = await loadCurrentUser(); // Загружаем текущего пользователя
+            const currentUserId = currentUser ? currentUser._id : null; // Используйте `_id`
 
-// Обновленный вызов функции загрузки видео
-async function handleUpload(videoBlob) {
-    // Загружаем текущего пользователя
-    const currentUser = await loadCurrentUser();
-    const currentUserId = currentUser ? currentUser.id : null;
+            console.log("Полученный userId:", currentUserId);
+            if (!currentUserId) {
+                console.error("userId не определен. Загрузка видео невозможна.");
+                return;
+            }
 
-    if (currentUserId) {
-        // Продолжать загрузку видео
-        await uploadVideo(videoBlob, currentUserId);
-    } else {
-        alert("Не удалось получить текущего пользователя. Пожалуйста, проверьте, авторизованы ли вы.");
-    }
-}
+            const formData = new FormData();
+            formData.append('video', videoBlob, 'story.mp4');
+            formData.append('userId', currentUserId); // Передаем userId
 
+            // Отправим данные на сервер
+            try {
+                const response = await fetch('/api/upload-video', {
+                    method: 'POST',
+                    body: formData,
+                    credentials: 'include' // Убедитесь, что отправка куки происходит, если на сервере используется аутентификация
+                });
+
+                if (!response.ok) {
+                    throw new Error('Ошибка при загрузке видео: ' + response.statusText);
+                }
+
+                console.log('Видео успешно загружено!');
+                clearAfterPublish(); // Очистка после успешной загрузки
+            } catch (error) {
+                console.error("Ошибка загрузки видео:", error);
+            }
+        }
 
         function clearAfterPublish() {
             recordedChunks = [];

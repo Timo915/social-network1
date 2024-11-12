@@ -126,23 +126,23 @@
         }
 
         async function loadFriends(userId) {
-    try {
-        const response = await fetch(`/api/friends/${userId}`);
-        if (!response.ok) throw new Error('Ошибка загрузки друзей');
-        
-        // Кешируем список друзей
-        const rawFriendsList = await response.json(); 
+            try {
+                const response = await fetch(`/api/friends/${userId}`);
+                if (!response.ok) throw new Error('Ошибка загрузки друзей');
+                
+                // Кешируем список друзей
+                const rawFriendsList = await response.json(); 
 
-        // Фильтруем список, чтобы исключить самого себя
-        friendsList = rawFriendsList.filter(friend => friend._id !== userId);
-        
-        console.log('Список друзей загружен:', friendsList);
-        return friendsList; // Возвращаем только отфильтрованный список
-    } catch (error) {
-        console.error(error.message);
-        throw error;
-    }
-}
+                // Фильтруем список, чтобы исключить самого себя
+                friendsList = rawFriendsList.filter(friend => friend._id !== userId);
+                
+                console.log('Список друзей загружен:', friendsList);
+                return friendsList; // Возвращаем только отфильтрованный список
+            } catch (error) {
+                console.error(error.message);
+                throw error;
+            }
+        }
 
         async function loadSentRequests() {
             const container = document.getElementById('sentRequestsList');
@@ -233,6 +233,8 @@
                     if (!response.ok) throw new Error('Ошибка при принятии запроса');
                     alert('Запрос на дружбу принят.');
                     await loadIncomingRequests(currentUser._id); // Обновляем входящие запросы
+                    await loadFriends(currentUser._id); // Обновляем список друзей
+                    renderFriendsList(); // Перерисовываем список 
                 } catch (error) {
                     alert(error.message);
                 }
@@ -253,20 +255,20 @@
         }
 
         window.onload = async () => {
-    currentUser = await loadCurrentUser(); // Загружаем текущего пользователя
-    console.log('Текущий пользователь после загрузки:', currentUser);
-    
-    if (currentUser && currentUser._id) {
-        console.log('Пользователь найден, показываем друзей');
-        // Загрузка друзей с фильтрацией
-        friendsList = await loadFriends(currentUser._id);
-        renderFriendsList(); // Отрисовка списка друзей
-        showSection('friends'); // Показываем секцию друзей
-    } else {
-        console.error('Не удалось загрузить информацию о пользователе. Войдите в систему.');
-        alert('Не удалось загрузить информацию о пользователе. Пожалуйста, войдите в систему.');
-    }
-};
+            currentUser = await loadCurrentUser(); // Загружаем текущего пользователя
+            console.log('Текущий пользователь после загрузки:', currentUser);
+            
+            if (currentUser && currentUser._id) {
+                console.log('Пользователь найден, показываем друзей');
+                // Загрузка друзей с фильтрацией
+                friendsList = await loadFriends(currentUser._id);
+                renderFriendsList(); // Отрисовка списка друзей
+                showSection('friends'); // Показываем секцию друзей
+            } else {
+                console.error('Не удалось загрузить информацию о пользователе. Войдите в систему.');
+                alert('Не удалось загрузить информацию о пользователе. Пожалуйста, войдите в систему.');
+            }
+        };
 
         function showSection(section) {
             console.log('Показать секцию:', section);
@@ -295,6 +297,7 @@
         function renderFriendsList() {
     const friendsListElement = document.getElementById('friendsList');
     friendsListElement.innerHTML = ''; // Очищаем список
+
     // Если список друзей пуст, показываем уведомление
     if (friendsList.length === 0) {
         friendsListElement.innerHTML = '<li>У вас нет друзей.</li>';
@@ -302,12 +305,28 @@
     }
 
     friendsList.forEach(friend => {
-        const listItem = document.createElement('li');
-        listItem.innerHTML = `
-            <span>${friend.username}</span>
-            <button onclick="removeFriend('${friend._id}')">Удалить</button>
-        `;
-        friendsListElement.appendChild(listItem);
+        // Извлекаем информацию о друзьях
+        const user1 = friend.user1;
+        const user2 = friend.user2;
+
+        // Проверяем, что не отображаем текущего пользователя
+        if (user1._id !== currentUser._id) {
+            const listItem = document.createElement('li');
+            listItem.innerHTML = `
+                <span>${user1.username}</span>
+                <button onclick="removeFriend('${friend._id}')">Удалить</button>
+            `;
+            friendsListElement.appendChild(listItem);
+        }
+
+        if (user2._id !== currentUser._id) {
+            const listItem = document.createElement('li');
+            listItem.innerHTML = `
+                <span>${user2.username}</span>
+                <button onclick="removeFriend('${friend._id}')">Удалить</button>
+            `;
+            friendsListElement.appendChild(listItem);
+        }
     });
 }
     </script>

@@ -13,8 +13,17 @@ const axios = require('axios');
 const Story = require('./models/Story');
 
 const ffmpeg = require('fluent-ffmpeg');
-
+const ObjectId = mongoose.Types.ObjectId;
 const fs = require('fs');
+
+const admin = require("firebase-admin");
+const serviceAccount = require("./serviceAccountKey.json");// Укажите путь к вашему JSON-файлу сервисного аккаунта
+
+admin.initializeApp({
+  credential: admin.credential.cert(serviceAccount),
+  storageBucket: "socialhumon.appspot.com" // Замените на ваш Storage Bucket
+});
+
 
 const router = express.Router();
 const User = require('./models/User'); // Импортируйте только один раз
@@ -46,6 +55,10 @@ const storage = multer.diskStorage({
 
 
 
+
+
+
+
 const upload = multer({ 
     storage,
     limits: { fileSize: 100 * 1024 * 1024 }, // Ограничиваем размер файла до 5 МБ
@@ -64,7 +77,7 @@ const upload = multer({
 
 const Comment = require('./models/Comment'); // Путь может различаться в зависимости от вашей структуры файлов
 const Like = require('./models/Like'); // Путь может отличаться
-const FriendshipModel = require('./models/Friendship');
+const Friendship = require('./models/friendship'); // Проверьте правильный путь к вашему файлу // Обратите внимание на правильный путь к модели
 const FriendRequest = require('./models/FriendRequest'); // Путь должен быть правильным относительно вашего проекта
 // Предположим, у вас есть модель Post
 const Post = require('./models/Post');
@@ -113,8 +126,13 @@ passport.deserializeUser(async (id, done) => {
         done(error);
     }
 });
+
+
+const MongoStore = require('connect-mongo');
+
 app.use(session({
     secret: 'your_jwt_secret',
+    store: MongoStore.create({ mongoUrl: 'mongodb+srv://mrborovry:Pins8hXZroPNQGVF@cluster0.vkuwm.mongodb.net/social-network?retryWrites=true&w=majority' }),
     resave: false,
     saveUninitialized: false,
     cookie: {
@@ -152,52 +170,142 @@ app.get('/', (req, res) => {
 });
 // Endpoint для загрузки изображений
 // Обработчик для загрузки изображений
+// Обработка загрузки видео и аудио файлов
 app.post('/upload', upload.fields([
     { name: 'videos', maxCount: 10 },
     { name: 'audio', maxCount: 10 }
-]), (req, res) => {
+]), async (req, res) => {
     const uploadedFiles = req.files;
 
     if (!uploadedFiles.videos && !uploadedFiles.audio) {
         return res.status(400).send('Нет файлов для загрузки.');
     }
 
+    const bucket = admin.storage().bucket();
     const filesInfo = {
-        videoFiles: uploadedFiles.videos ? uploadedFiles.videos.map(file => `uploads/${file.filename}`) : [],
-        audioFiles: uploadedFiles.audio ? uploadedFiles.audio.map(file => `uploads/${file.filename}`) : [],
+        videoFiles: [],
+        audioFiles: []
     };
 
-    res.json({
-        message: 'Файлы успешно загружены',
-        files: filesInfo
-    });
-});
+    try {
+        // Загрузка видео
+        if (uploadedFiles.videos) {
+            for (const file of uploadedFiles.videos) {
+                const fileName = `${Date.now()}_${file.originalname}`;
+                const fileInBucket = bucket.file(fileName);
+                
+                await fileInBucket.save(file.buffer, {
+                    metadata: {
+                        contentType: file.mimetype,
+                    },
+                });
+                
+                const url = `https://firebasestorage.googleapis.com/v0/b/${bucket.name}/o/${encodeURIComponent(fileName)}?alt=media`;
+                filesInfo.videoFiles.push({
+                    name: file.originalname,
+                    path: url,
+                    type: file.mimetype,
+                });
+            }
+        }
 
-// Например, это может быть внутри обработчика маршрута
-// Обработчик маршрута для загрузки медиафайлов
-// Обработчик маршрута для загрузки медиафайлов
-app.post('/upload/media', upload.fields([{ name: 'video' }, { name: 'audio' }]), (req, res) => {
-    if (req.files) {
-        const files = (req.files.video || []).concat(req.files.audio || []);
-        const fileInfo = files.map(file => {
-            // Убедитесь, что у вас нет лишнего слеша в URL
-            const url = `/profile/uploads/${encodeURIComponent(file.filename)}`;
+        // Загрузка аудио
+        if (uploadedFiles.audio) {
+            for (const file of uploadedFiles.audio) {
+                const fileName = `${Date.now()}_${file.originalname}`;
+                const fileInBucket = bucket.file(fileName);
 
-            return {
-                name: file.originalname,
-                path: url,
-                type: file.mimetype
-            };
-        });
+                await fileInBucket.save(file.buffer, {
+                    metadata: {
+                        contentType: file.mimetype,
+                    },
+                });
 
-        return res.json({
+                const url = `https://firebasestorage.googleapis.com/v0/b/${bucket.name}/o/${encodeURIComponent(fileName)}?alt=media`;
+                filesInfo.audioFiles.push({
+                    name: file.originalname,
+                    path: url,
+                    type: file.mimetype,
+                });
+            }
+        }
+
+        res.json({
             message: 'Файлы успешно загружены',
-            files: fileInfo
+            files: filesInfo
         });
+    } catch (error) {
+        console.error('Ошибка при загрузке файлов в Firebase Storage:', error);
+        res.status(500).send('Ошибка загрузки файлов.');
     }
-    return res.status(400).json({ message: 'Ошибка загрузки файлов.' });
 });
 
+// Обработчик маршрута для загрузки видеозаписей и аудио
+app.post('/upload/media', upload.fields([{ name: 'video' }, { name: 'audio' }]), async (req, res) => {
+    const uploadedFiles = req.files;
+
+    if (!uploadedFiles.video && !uploadedFiles.audio) {
+        return res.status(400).send('Нет файлов для загрузки.');
+    }
+
+    const bucket = admin.storage().bucket();
+    const filesInfo = [];
+
+    try {
+        // Загрузка видео
+        if (uploadedFiles.video) {
+            for (const file of uploadedFiles.video) {
+                const fileName = `${Date.now()}_${file.originalname}`;
+                const fileInBucket = bucket.file(fileName);
+                
+                await fileInBucket.save(file.buffer, {
+                    metadata: {
+                        contentType: file.mimetype,
+                    },
+                });
+
+                const url = `https://firebasestorage.googleapis.com/v0/b/${bucket.name}/o/${encodeURIComponent(fileName)}?alt=media`;
+                filesInfo.push({
+                    name: file.originalname,
+                    path: url,
+                    type: file.mimetype,
+                });
+            }
+        }
+
+        // Загрузка аудио
+        if (uploadedFiles.audio) {
+            for (const file of uploadedFiles.audio) {
+                const fileName = `${Date.now()}_${file.originalname}`;
+                const fileInBucket = bucket.file(fileName);
+
+                await fileInBucket.save(file.buffer, {
+                    metadata: {
+                        contentType: file.mimetype,
+                    },
+                });
+
+                const url = `https://firebasestorage.googleapis.com/v0/b/${bucket.name}/o/${encodeURIComponent(fileName)}?alt=media`;
+                filesInfo.push({
+                    name: file.originalname,
+                    path: url,
+                    type: file.mimetype,
+                });
+            }
+        }
+
+        res.json({
+            message: 'Файлы успешно загружены',
+            files: filesInfo
+        });
+    } catch (error) {
+        console.error('Ошибка при загрузке файлов в Firebase Storage:', error);
+        res.status(500).send('Ошибка загрузки файлов.');
+    }
+});
+const firebase = require('firebase/app');
+const { isatty } = require('tty');
+// Import the functions you need from the SDKs you need
 
 
 
@@ -1514,32 +1622,6 @@ app.get('/api/current-user', (req, res) => {
 });
 
 // Определяем функцию до ее вызова
-app.get('/api/friends/:userId', async (req, res) => {
-    const userId = req.params.userId;
-
-    // Проверка формата идентификатора
-    if (!mongoose.isValidObjectId(userId)) {
-        return res.status(400).json({ message: 'Invalid user ID' });
-    }
-
-    try {
-        // Находим все дружбы, в которых пользователь является одним из участников
-        const friendships = await FriendshipModel.find({
-            $or: [{ user1: userId }, { user2: userId }]
-        }).populate('user1 user2', 'username');
-
-        // Извлекаем список друзей
-        const friends = friendships.map(friendship => {
-            return friendship.user1.equals(userId) ? friendship.user2 : friendship.user1;
-        });
-
-        // Отправляем ответ с данными о друзьях
-        res.json(friends);
-    } catch (error) {
-        console.error('Ошибка при получении друзей:', error);
-        res.status(500).json({ message: 'Ошибка сервера' });
-    }
-});
 
 // Пример маршрута в express для получения друзей
 app.get('/api/get-friends', isAuthenticated, async (req, res) => {
@@ -1743,12 +1825,14 @@ app.post('/api/send-friend-request', isAuthenticated, async (req, res) => {
     }
 });
 
+// Импортируйте сначала модели
+
+// Далее, после импортов, определяйте маршруты
 app.post('/accept-request/:requestId', isAuthenticated, async (req, res) => {
     const requestId = req.params.requestId;
 
     try {
-        // Найти запрос на дружбу и сопоставить отправителя
-        const friendRequest = await FriendRequest.findById(requestId).populate('sender');
+        const friendRequest = await FriendRequest.findById(requestId).populate('sender'); // Исправлено: использовали friendRequest
         if (!friendRequest) {
             return res.status(404).json({ success: false, message: 'Запрос не найден.' });
         }
@@ -1756,7 +1840,6 @@ app.post('/accept-request/:requestId', isAuthenticated, async (req, res) => {
         const receiverId = req.user._id;
         const senderId = friendRequest.sender._id;
 
-        // Проверить, существует ли дружба
         const existingFriendship = await Friendship.findOne({
             $or: [
                 { user1: senderId, user2: receiverId },
@@ -1768,21 +1851,19 @@ app.post('/accept-request/:requestId', isAuthenticated, async (req, res) => {
             return res.status(400).json({ success: false, message: 'Вы уже в друзьях.' });
         }
 
-        // Создать новую запись о дружбе
         const friendship = new Friendship({
             user1: senderId,
             user2: receiverId
         });
         await friendship.save();
 
-        // Обновить массив friends у обоих пользователей
-        await User.updateOne({ _id: senderId }, { $addToSet: { friends: receiverId } });
-        await User.updateOne({ _id: receiverId }, { $addToSet: { friends: senderId } });
+        await Promise.all([
+            User.updateOne({ _id: senderId }, { $addToSet: { friends: receiverId } }),
+            User.updateOne({ _id: receiverId }, { $addToSet: { friends: senderId } })
+        ]);
 
-        // Удалить заявку о дружбе
         await FriendRequest.deleteOne({ _id: requestId });
 
-        // Ответ клиенту с новой дружбой
         return res.json({
             success: true,
             message: 'Запрос на дружбу принят.',
@@ -1794,7 +1875,30 @@ app.post('/accept-request/:requestId', isAuthenticated, async (req, res) => {
         });
     } catch (error) {
         console.error('Ошибка при принятии запроса:', error);
-        res.status(500).json({ success: false, message: 'Ошибка сервера.' });
+        return res.status(500).json({ success: false, message: 'Ошибка сервера.' });
+    }
+});
+
+app.get('/api/friends/:userId', async (req, res) => {
+    try {
+        const userId = req.params.userId;
+
+        // Получаем друзей на основе модели Friendship
+        const friendships = await Friendship.find({
+            $or: [
+                { user1: userId }, 
+                { user2: userId }
+            ]
+        }).populate('user1 user2'); // Подгружаем пользователей, если это необходимо
+
+        if (!friendships.length) {
+            return res.status(404).json({ message: 'Друзья не найдены.' });
+        }
+
+        return res.json(friendships);
+    } catch (error) {
+        console.error('Ошибка при получении друзей:', error);
+        return res.status(500).json({ success: false, message: 'Ошибка сервера.' });
     }
 });
 
@@ -1905,12 +2009,18 @@ app.post('/api/comments/:postId', async (req, res) => {
     }
 });
 
-app.get('/create-group-chat', async (req, res) => {
+app.get('/create-group-chat', isAuthenticated, async (req, res) => {
     try {
+        // Проверяем, существует ли текущий пользователь и есть ли у него id
+        if (!req.user || !req.user.id) {
+            return res.status(401).json({ message: 'Пользователь не авторизован' });
+        }
+
         const userId = req.user.id; // Получаем ID текущего пользователя
+
         // Запрашиваем дружеские отношения пользователя
         const friendships = await Friendship.find({ $or: [{ user1: userId }, { user2: userId }] });
-        
+
         // Получаем участников только с подтвержденными дружескими отношениями
         const participants = friendships
             .filter(friendship => friendship.status === 'accepted')
@@ -2130,36 +2240,7 @@ app.post('/api/videos', upload.array('videos'), async (req, res) => {
 // Страница создания истории
 
 // Обработка создания истории
-app.post('/api/stories', isAuthenticated, async (req, res) => {
-    console.log("Текущий пользователь:", req.user); // Логируем данные пользователя
-    const videoUrl = req.body.videoUrl; // Получаем videoUrl из тела запроса
-    const userId = req.user ? req.user.id : null; // Получаем userId из текущего пользователя
 
-    // Проверка, что переданы userId и videoUrl
-    if (!userId) {
-        return res.status(400).json({ error: 'userId is required' });
-    }
-    if (!videoUrl) {
-        return res.status(400).json({ error: 'videoUrl is required' });
-    }
-
-    // Создание новой истории
-    const newStory = new Story({
-        userId,
-        videoUrl,
-        status: 'public', // или другое значение статуса
-        viewers: [],
-        expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000) // Например, 24 часа
-    });
-
-    try {
-        await newStory.save(); // Сохранение документа в базе данных
-        return res.status(201).json(newStory); // Возврат созданного элемента
-    } catch (error) {
-        console.error('Ошибка при сохранении истории:', error);
-        return res.status(500).json({ error: 'Ошибка сервера' });
-    }
-});
 
 app.post('/upload-history', async (req, res) => {
     try {
@@ -2182,21 +2263,43 @@ app.post('/upload-history', async (req, res) => {
         res.status(500).send('Ошибка при загрузке истории.');
     }
 });
-app.get('/api/stories', async (req, res) => {
-    const userId = req.query.userId;
-    if (!userId) {
-        return res.status(400).json({ error: 'userId is required' });
+
+const getCurrentUserId = async (req, res, next) => {
+    const token = req.cookies.token; // Извлечение токена из печений
+
+    if (!token) {
+        return res.status(401).json({ message: 'Необходима аутентификация' });
     }
 
     try {
-        const stories = await Story.find({ userId: userId });
-        console.log('Stories retrieved:', stories); // Выводим истории в консоль для отладки
-        res.status(200).json(stories);
+        const decoded = jwt.verify(token, process.env.JWT_SECRET); // Проверка токена
+        req.userId = decoded.id; // Установка userId в запрос
+        next(); // Передача управления следующему обработчику
     } catch (error) {
-        console.error('Error fetching stories:', error);
-        res.status(500).json({ error: 'Failed to fetch stories' });
+        return res.status(403).json({ message: 'Недействительный токен' });
+    }
+};
+
+// Получение всех историй для определенного пользователя
+// Маршрут для получения всех историй
+app.get('/api/stories/user/:userId', async (req, res) => {
+    const { userId } = req.params;
+    console.log(`Запрос на получение историй для пользователя с ID: ${userId}`);
+
+    try {
+        const stories = await Story.find({ userId }).sort({ createdAt: -1 }); // Сортируем по времени создания
+        if (stories.length === 0) {
+            console.log(`Истории для пользователя с ID ${userId} не найдены`);
+            return res.json([]);
+        }
+        res.json(stories);
+    } catch (error) {
+        console.error('Ошибка при получении историй:', error);
+        res.status(500).json({ message: 'Ошибка сервера' });
     }
 });
+
+
 app.post('/api/stories', async (req, res) => {
     const { userId, videoUrl, status, expiresAt } = req.body;
     const newStory = new Story({
@@ -2229,14 +2332,7 @@ app.get('/api/notifications', (req, res) => {
 });
 
 // Пример маршрута для получения конкретной истории
-app.get('/story/:storyId', (req, res) => {
-    const storyId = req.params.storyId;
-    // Логика для извлечения истории по storyId
-    // Пример данных для возврата
-    const story = { id: storyId, content: 'Контент истории...' };
-    
-    res.json(story); // Вернуть данные в формате JSON
-});
+
 // Запуск сервера
 server.listen(PORT, () => {
     console.log(`Server running on port ${PORT}`);
