@@ -16,7 +16,7 @@ const ffmpeg = require('fluent-ffmpeg');
 const ObjectId = mongoose.Types.ObjectId;
 const fs = require('fs');
 
-const admin = require("firebase-admin");
+
 const serviceAccount = require("./serviceAccountKey.json");// Укажите путь к вашему JSON-файлу сервисного аккаунта
 
 admin.initializeApp({
