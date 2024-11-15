@@ -100,6 +100,7 @@ require('dotenv').config();
 
 
 
+
 // Настройка CORS для вашего сервера
 app.use(cors({
     origin: 'https://social-network1.onrender.com', // замените на ваш клиентский домен
