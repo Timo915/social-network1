@@ -16,14 +16,6 @@ const ffmpeg = require('fluent-ffmpeg');
 const ObjectId = mongoose.Types.ObjectId;
 const fs = require('fs');
 
-const admin = require("firebase-admin");
-const serviceAccount = require("./serviceAccountKey.json");// Укажите путь к вашему JSON-файлу сервисного аккаунта
-
-admin.initializeApp({
-  credential: admin.credential.cert(serviceAccount),
-  storageBucket: "socialhumon.appspot.com" // Замените на ваш Storage Bucket
-});
-
 
 const router = express.Router();
 const User = require('./models/User'); // Импортируйте только один раз
@@ -105,16 +97,6 @@ const uploadPath = path.join(__dirname, 'profile', 'uploads');
 
 
 require('dotenv').config();
-const admin = require('firebase-admin');
-
-// Инициализация приложения Firebase с помощью учетных данных из переменных окружения
-admin.initializeApp({
-    credential: admin.credential.cert({
-        projectId: process.env.GOOGLE_PROJECT_ID,
-        clientEmail: process.env.GOOGLE_CLIENT_EMAIL,
-        privateKey: process.env.GOOGLE_PRIVATE_KEY.replace(/\\n/g, '\n'), // Замените `\n` на новую строку
-    }),
-});
 
 
 
@@ -187,17 +169,23 @@ app.get('/', (req, res) => {
 // Endpoint для загрузки изображений
 // Обработчик для загрузки изображений
 // Обработка загрузки видео и аудио файлов
-app.post('/upload', upload.fields([
-    { name: 'videos', maxCount: 10 },
-    { name: 'audio', maxCount: 10 }
-]), async (req, res) => {
+
+const { createClient } = require('@supabase/supabase-js');
+
+
+// Создание клиента Supabase
+const supabaseUrl = 'https://fklewcgnuuxgmnzlvwqe.supabase.co';
+const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZrbGV3Y2dudXV4Z21uemx2d3FlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzE2NzMzMTEsImV4cCI6MjA0NzI0OTMxMX0.rb_yWhFMU7Fx0cLt_EmN24puwbogZUzCelLdD2yShzg'; // Используйте роль сервиса для доступа к приватному bucket
+const supabase = createClient(supabaseUrl, supabaseKey);
+
+// Обработчик маршрута для загрузки медиафайлов
+app.post('/upload/media', upload.fields([{ name: 'videos', maxCount: 10 }, { name: 'audio', maxCount: 10 }]), async (req, res) => {
     const uploadedFiles = req.files;
 
     if (!uploadedFiles.videos && !uploadedFiles.audio) {
         return res.status(400).send('Нет файлов для загрузки.');
     }
 
-    const bucket = admin.storage().bucket();
     const filesInfo = {
         videoFiles: [],
         audioFiles: []
@@ -207,19 +195,19 @@ app.post('/upload', upload.fields([
         // Загрузка видео
         if (uploadedFiles.videos) {
             for (const file of uploadedFiles.videos) {
-                const fileName = `${Date.now()}_${file.originalname}`;
-                const fileInBucket = bucket.file(fileName);
-                
-                await fileInBucket.save(file.buffer, {
-                    metadata: {
-                        contentType: file.mimetype,
-                    },
+                const { data, error } = await supabase.storage.from('social').upload(`videos/${Date.now()}_${file.originalname}`, file.buffer, {
+                    contentType: file.mimetype,
                 });
-                
-                const url = `https://firebasestorage.googleapis.com/v0/b/${bucket.name}/o/${encodeURIComponent(fileName)}?alt=media`;
+
+                if (error) throw error;
+
+                // Генерация URL для доступа к загруженным файлам
+                const { signedURL, error: urlError } = await supabase.storage.from('social').createSignedUrl(data.path, 60); // URL действителен 60 секунд
+                if (urlError) throw urlError;
+
                 filesInfo.videoFiles.push({
                     name: file.originalname,
-                    path: url,
+                    path: signedURL,
                     type: file.mimetype,
                 });
             }
@@ -228,19 +216,19 @@ app.post('/upload', upload.fields([
         // Загрузка аудио
         if (uploadedFiles.audio) {
             for (const file of uploadedFiles.audio) {
-                const fileName = `${Date.now()}_${file.originalname}`;
-                const fileInBucket = bucket.file(fileName);
-
-                await fileInBucket.save(file.buffer, {
-                    metadata: {
-                        contentType: file.mimetype,
-                    },
+                const { data, error } = await supabase.storage.from('social').upload(`audio/${Date.now()}_${file.originalname}`, file.buffer, {
+                    contentType: file.mimetype,
                 });
 
-                const url = `https://firebasestorage.googleapis.com/v0/b/${bucket.name}/o/${encodeURIComponent(fileName)}?alt=media`;
+                if (error) throw error;
+
+                // Генерация URL для доступа к загруженным файлам
+                const { signedURL, error: urlError } = await supabase.storage.from('social').createSignedUrl(data.path, 60); // URL действителен 60 секунд
+                if (urlError) throw urlError;
+
                 filesInfo.audioFiles.push({
                     name: file.originalname,
-                    path: url,
+                    path: signedURL,
                     type: file.mimetype,
                 });
             }
@@ -251,76 +239,13 @@ app.post('/upload', upload.fields([
             files: filesInfo
         });
     } catch (error) {
-        console.error('Ошибка при загрузке файлов в Firebase Storage:', error);
+        console.error('Ошибка при загрузке файлов в Supabase:', error);
         res.status(500).send('Ошибка загрузки файлов.');
     }
 });
 
-// Обработчик маршрута для загрузки видеозаписей и аудио
-app.post('/upload/media', upload.fields([{ name: 'video' }, { name: 'audio' }]), async (req, res) => {
-    const uploadedFiles = req.files;
+// Запуск сервера
 
-    if (!uploadedFiles.video && !uploadedFiles.audio) {
-        return res.status(400).send('Нет файлов для загрузки.');
-    }
-
-    const bucket = admin.storage().bucket();
-    const filesInfo = [];
-
-    try {
-        // Загрузка видео
-        if (uploadedFiles.video) {
-            for (const file of uploadedFiles.video) {
-                const fileName = `${Date.now()}_${file.originalname}`;
-                const fileInBucket = bucket.file(fileName);
-                
-                await fileInBucket.save(file.buffer, {
-                    metadata: {
-                        contentType: file.mimetype,
-                    },
-                });
-
-                const url = `https://firebasestorage.googleapis.com/v0/b/${bucket.name}/o/${encodeURIComponent(fileName)}?alt=media`;
-                filesInfo.push({
-                    name: file.originalname,
-                    path: url,
-                    type: file.mimetype,
-                });
-            }
-        }
-
-        // Загрузка аудио
-        if (uploadedFiles.audio) {
-            for (const file of uploadedFiles.audio) {
-                const fileName = `${Date.now()}_${file.originalname}`;
-                const fileInBucket = bucket.file(fileName);
-
-                await fileInBucket.save(file.buffer, {
-                    metadata: {
-                        contentType: file.mimetype,
-                    },
-                });
-
-                const url = `https://firebasestorage.googleapis.com/v0/b/${bucket.name}/o/${encodeURIComponent(fileName)}?alt=media`;
-                filesInfo.push({
-                    name: file.originalname,
-                    path: url,
-                    type: file.mimetype,
-                });
-            }
-        }
-
-        res.json({
-            message: 'Файлы успешно загружены',
-            files: filesInfo
-        });
-    } catch (error) {
-        console.error('Ошибка при загрузке файлов в Firebase Storage:', error);
-        res.status(500).send('Ошибка загрузки файлов.');
-    }
-});
-const firebase = require('firebase/app');
-const { isatty } = require('tty');
 // Import the functions you need from the SDKs you need
 
 
