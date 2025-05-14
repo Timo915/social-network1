@@ -1,40 +1,221 @@
 <!DOCTYPE html>
 <html lang="ru">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Музыкальная платформа</title>
-    <link rel="stylesheet" href="/path/to/your/styles.css"> <!-- Укажите свой путь к стилям -->
-    <script src="/path/to/your/scripts.js" defer></script> <!-- Укажите свой путь к скриптам -->
+    <style>
+        /* Reset and base */
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #121212;
+            color: #fff;
+            display: flex;
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+        a {
+            color: #1db954;
+            text-decoration: none;
+        }
+        a:hover {
+            text-decoration: underline;
+        }
+        header {
+            background-color: #181818;
+            padding: 20px;
+            text-align: center;
+            font-size: 1.5rem;
+            font-weight: 700;
+            letter-spacing: 1.5px;
+            border-bottom: 1px solid #282828;
+            flex-shrink: 0;
+        }
+        nav {
+            background-color: #181818;
+            width: 250px;
+            padding: 20px;
+            border-right: 1px solid #282828;
+            display: flex;
+            flex-direction: column;
+            flex-shrink: 0;
+        }
+        nav select, nav input, nav button {
+            margin-bottom: 15px;
+            padding: 10px;
+            border-radius: 4px;
+            border: none;
+            font-size: 1rem;
+        }
+        nav select, nav input {
+            background-color: #282828;
+            color: #fff;
+        }
+        nav button {
+            background-color: #1db954;
+            color: #fff;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+        }
+        nav button:hover {
+            background-color: #1ed760;
+        }
+        main {
+            flex-grow: 1;
+            padding: 20px;
+            overflow-y: auto;
+            background-color: #121212;
+        }
+        section {
+            margin-bottom: 40px;
+        }
+        h2 {
+            margin-bottom: 15px;
+            font-weight: 700;
+            font-size: 1.3rem;
+            border-bottom: 2px solid #1db954;
+            padding-bottom: 5px;
+        }
+        ul {
+            list-style: none;
+        }
+        .music-item, .downloaded-item {
+            background-color: #181818;
+            margin-bottom: 12px;
+            padding: 15px;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            transition: background-color 0.3s ease;
+        }
+        .music-item:hover, .downloaded-item:hover {
+            background-color: #282828;
+        }
+        .music-info {
+            flex-grow: 1;
+            margin-right: 15px;
+        }
+        .music-title {
+            font-weight: 700;
+            font-size: 1.1rem;
+            margin-bottom: 5px;
+        }
+        .music-artist {
+            font-size: 0.9rem;
+            color: #b3b3b3;
+        }
+        audio {
+            outline: none;
+            width: 200px;
+            margin-right: 15px;
+            border-radius: 4px;
+            background-color: #000;
+        }
+        button.add-playlist-btn {
+            background-color: #1db954;
+            border: none;
+            color: white;
+            padding: 8px 14px;
+            border-radius: 20px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+        }
+        button.add-playlist-btn:hover {
+            background-color: #1ed760;
+        }
+        #exportPlaylistButton {
+            background-color: #1db954;
+            border: none;
+            color: white;
+            padding: 12px 20px;
+            border-radius: 30px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+            margin-top: 10px;
+        }
+        #exportPlaylistButton:hover {
+            background-color: #1ed760;
+        }
+        footer {
+            text-align: center;
+            padding: 15px;
+            font-size: 0.9rem;
+            color: #666;
+            background-color: #181818;
+            flex-shrink: 0;
+            width: 100%;
+            position: fixed;
+            bottom: 0;
+            left: 0;
+        }
+        /* Scrollbar styling */
+        main::-webkit-scrollbar {
+            width: 8px;
+        }
+        main::-webkit-scrollbar-track {
+            background: #121212;
+        }
+        main::-webkit-scrollbar-thumb {
+            background-color: #1db954;
+            border-radius: 10px;
+        }
+    </style>
 </head>
 <body>
-    <header>
-        <h1>Музыкальная платформа</h1>
-        <nav>
-            <select id="sourceSelect">
-                <option value="spotify">Spotify</option>
-                <option value="youtube">YouTube</option>
-                <option value="lastfm">Last.fm</option>
-                <!-- Добавьте дополнительные источники по необходимости -->
-            </select>
-            <input type="text" id="searchInput" placeholder="Поиск по жанру, артисту или стране" />
-            <button id="searchButton">Поиск</button>
-        </nav>
-    </header>
-
+    <nav>
+        <header>Музыкальная платформа</header>
+        <div id="tabs">
+            <button class="tab-button active" data-tab="top-charts">Топ чарты</button>
+            <button class="tab-button" data-tab="artists">Артисты</button>
+            <button class="tab-button" data-tab="recommendations">Рекомендации</button>
+            <button class="tab-button" data-tab="my-music">Моя музыка</button>
+            <button class="tab-button" data-tab="albums">Альбомы</button>
+        </div>
+        <select id="sourceSelect" aria-label="Выбор источника музыки" style="margin-top: 10px;">
+            <option value="spotify">Spotify</option>
+            <option value="youtube">YouTube</option>
+            <option value="lastfm">Last.fm</option>
+            <option value="local">Локальная база</option>
+        </select>
+        <input type="text" id="searchInput" placeholder="Поиск по жанру, артисту или стране" aria-label="Поле поиска" />
+        <button id="searchButton" aria-label="Кнопка поиска">Поиск</button>
+    </nav>
     <main>
-        <section id="music-list">
-            <h2>Музыка</h2>
-            <ul id="musicListItems"></ul>
+        <section id="top-charts" class="tab-content active">
+            <h2>Топ чарты</h2>
+            <ul id="topChartsList" aria-live="polite" aria-relevant="additions"></ul>
         </section>
-
+        <section id="artists" class="tab-content">
+            <h2>Артисты</h2>
+            <ul id="artistsList" aria-live="polite" aria-relevant="additions"></ul>
+        </section>
+        <section id="recommendations" class="tab-content">
+            <h2>Рекомендации</h2>
+            <ul id="recommendationsList" aria-live="polite" aria-relevant="additions"></ul>
+        </section>
+        <section id="my-music" class="tab-content">
+            <h2>Моя музыка</h2>
+            <ul id="myMusicList" aria-live="polite" aria-relevant="additions"></ul>
+        </section>
+        <section id="albums" class="tab-content">
+            <h2>Альбомы</h2>
+            <ul id="albumsList" aria-live="polite" aria-relevant="additions"></ul>
+        </section>
         <section id="downloaded-playlist">
             <h2>Скаченные треки</h2>
-            <ul id="downloadedTracksListItems"></ul>
-            <button id="exportPlaylistButton">Экспортировать плейлист</button>
+            <ul id="downloadedTracksListItems" aria-live="polite" aria-relevant="additions"></ul>
+            <button id="exportPlaylistButton" aria-label="Экспортировать плейлист">Экспортировать плейлист</button>
         </section>
     </main>
-
     <footer>
         <p>© 2023 Музыкальная платформа</p>
     </footer>
@@ -50,41 +231,125 @@
             searchMusic(query, selectedSource);
         });
 
-        function searchMusic(query, source) {
-            console.log("Поиск по запросу:", query, "Источник:", source);
+        // Tab switching logic
+        const tabButtons = document.querySelectorAll('.tab-button');
+        const tabContents = document.querySelectorAll('.tab-content');
 
-            // Пример AJAX запроса к серверу для поиска в зависимости от выбранного источника
-            fetch(`/search?query=${encodeURIComponent(query)}&source=${source}`)
-                .then(response => {
-                    if (!response.ok) {
-                        throw new Error('Сеть ответила с ошибкой');
-                    }
-                    return response.json();
-                })
-                .then(data => {
-                    // Обработайте и отобразите результаты поиска
-                    console.log("Результаты поиска:", data);
-                    updateMusicList(data.music); // предполагаем, что вы получите массив музыки
-                })
-                .catch(error => {
-                    console.error('Ошибка при выполнении поиска:', error);
-                });
+        tabButtons.forEach(button => {
+            button.addEventListener('click', () => {
+                tabButtons.forEach(btn => btn.classList.remove('active'));
+                tabContents.forEach(content => content.classList.remove('active'));
+
+                button.classList.add('active');
+                const tabId = button.getAttribute('data-tab');
+                document.getElementById(tabId).classList.add('active');
+
+                // Load content for the selected tab
+                loadTabContent(tabId);
+            });
+        });
+
+        // Load content for tabs
+        async function loadTabContent(tabId) {
+            switch (tabId) {
+                case 'top-charts':
+                    await loadTopCharts();
+                    break;
+                case 'artists':
+                    await loadArtists();
+                    break;
+                case 'recommendations':
+                    await loadRecommendations();
+                    break;
+                case 'my-music':
+                    await loadMyMusic();
+                    break;
+                case 'albums':
+                    await loadAlbums();
+                    break;
+            }
         }
 
-        function updateMusicList(music) {
-            const musicListItems = document.getElementById('musicListItems');
-            musicListItems.innerHTML = ''; // Очистить предыдущие элементы списка
+        async function loadTopCharts() {
+            try {
+                const response = await fetch('/top-charts');
+                const tracks = await response.json();
+                updateMusicList(tracks, 'topChartsList');
+            } catch (error) {
+                console.error('Ошибка при загрузке топ чартов:', error);
+            }
+        }
+
+        async function loadArtists() {
+            try {
+                const response = await fetch('/artists');
+                const artists = await response.json();
+                const artistsList = document.getElementById('artistsList');
+                artistsList.innerHTML = '';
+                artists.forEach(artist => {
+                    const listItem = document.createElement('li');
+                    listItem.textContent = artist;
+                    artistsList.appendChild(listItem);
+                });
+            } catch (error) {
+                console.error('Ошибка при загрузке артистов:', error);
+            }
+        }
+
+        async function loadRecommendations() {
+            try {
+                const response = await fetch('/recommendations');
+                const tracks = await response.json();
+                updateMusicList(tracks, 'recommendationsList');
+            } catch (error) {
+                console.error('Ошибка при загрузке рекомендаций:', error);
+            }
+        }
+
+        async function loadMyMusic() {
+            try {
+                const response = await fetch('/my-music');
+                const tracks = await response.json();
+                updateMusicList(tracks, 'myMusicList');
+            } catch (error) {
+                console.error('Ошибка при загрузке моей музыки:', error);
+            }
+        }
+
+        async function loadAlbums() {
+            try {
+                const response = await fetch('/albums');
+                const albums = await response.json();
+                const albumsList = document.getElementById('albumsList');
+                albumsList.innerHTML = '';
+                albums.forEach(album => {
+                    const listItem = document.createElement('li');
+                    listItem.textContent = album;
+                    albumsList.appendChild(listItem);
+                });
+            } catch (error) {
+                console.error('Ошибка при загрузке альбомов:', error);
+            }
+        }
+
+        function updateMusicList(music, listId) {
+            const musicListItems = document.getElementById(listId);
+            musicListItems.innerHTML = '';
 
             music.forEach(track => {
                 const listItem = document.createElement('li');
                 listItem.className = 'music-item';
                 listItem.innerHTML = `
-                    <strong>${track.title}</strong> - ${track.artist}
+                    <div class="music-info">
+                        <div class="music-title">${track.title}</div>
+                        <div class="music-artist">${track.artist}</div>
+                        <div class="music-album">${track.album || ''}</div>
+                    </div>
                     <audio controls>
                         <source src="${track.audioUrl}" type="audio/mpeg">
                         Ваш браузер не поддерживает аудиоплеер.
                     </audio>
-                    <button onclick="addToPlaylist('${track.audioUrl}', '${track.title}')">Добавить в плейлист</button>
+                    <button class="add-playlist-btn" onclick="addToPlaylist('${track.audioUrl}', '${track.title}')">Добавить в плейлист</button>
                 `;
                 musicListItems.appendChild(listItem);
             });
@@ -95,8 +360,11 @@
                 downloadedTracks.push(audioUrl);
                 const downloadedTracksList = document.getElementById('downloadedTracksListItems');
                 const listItem = document.createElement('li');
+                listItem.className = 'downloaded-item';
                 listItem.innerHTML = `
-                    <strong>${title}</strong>
+                    <div class="music-info">
+                        <div class="music-title">${title}</div>
+                    </div>
                     <audio controls>
                         <source src="${audioUrl}" type="audio/mpeg">
                         Ваш браузер не поддерживает аудиоплеер.
@@ -115,11 +383,14 @@
             const url = URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.href = url;
-            a.download = 'playlist.txt'; // Имя файла для экспорта
+            a.download = 'playlist.txt';
             document.body.appendChild(a);
             a.click();
             document.body.removeChild(a);
         });
+
+        // Load initial tab content
+        loadTabContent('top-charts');
     </script>
 </body>
 </html>

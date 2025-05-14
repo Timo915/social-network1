@@ -100,10 +100,13 @@ async function markAsMissedCall(userId) {
 }
 
 // Завершение звонка
-document.getElementById('endCallButton').addEventListener('click', () => {
-    alert(`Звонок с пользователем ${currentCallRecipientId} завершен.`);
-    resetCallInterface();
-});
+const endCallButton = document.getElementById('endCallButton');
+if (endCallButton) {
+    endCallButton.addEventListener('click', () => {
+        alert(`Звонок с пользователем ${currentCallRecipientId} завершен.`);
+        resetCallInterface();
+    });
+}
 
 // Сброс интерфейса звонка
 function resetCallInterface() {
@@ -123,22 +126,28 @@ function resetCallInterface() {
 }
 
 // Отключение микрофона
-document.getElementById('muteButton').addEventListener('change', (event) => {
-    if (currentStream) {
-        currentStream.getAudioTracks().forEach(track => {
-            track.enabled = !event.target.checked;
-        });
-    }
-});
+const muteButton = document.getElementById('muteButton');
+if (muteButton) {
+    muteButton.addEventListener('change', (event) => {
+        if (currentStream) {
+            currentStream.getAudioTracks().forEach(track => {
+                track.enabled = !event.target.checked;
+            });
+        }
+    });
+}
 
 // Отключение камеры
-document.getElementById('cameraButton').addEventListener('change', (event) => {
-    if (currentStream) {
-        currentStream.getVideoTracks().forEach(track => {
-            track.enabled = !event.target.checked;
-        });
-    }
-});
+const cameraButton = document.getElementById('cameraButton');
+if (cameraButton) {
+    cameraButton.addEventListener('change', (event) => {
+        if (currentStream) {
+            currentStream.getVideoTracks().forEach(track => {
+                track.enabled = !event.target.checked;
+            });
+        }
+    });
+}
 
 // Обработка выходящего вызова
 async function makeCall(userId) {

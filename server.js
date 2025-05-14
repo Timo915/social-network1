@@ -28,6 +28,8 @@ const Notification = require('./models/Notification'); // Измените пу�
 const GroupChat = require('./models/GroupChat');
 const GroupMessage = require('./models/GroupMessage'); // Замените на правильный путь
 
+const musicRoutes = require('./routes/musicRoutes'); // Import music routes
+
 const { protect } = require('./middleware/authMiddleware'); // Добавьте эту строку в начало вашего файла server.js
 const multer = require('multer');
 
@@ -88,7 +90,13 @@ const PORT = process.env.PORT || 5000;
 
 // Создание сервера HTTP
 const server = http.createServer(app);
-const io = socketIo(server); // Инициализация Socket.IO
+const io = socketIo(server, {
+    cors: {
+        origin: ['http://localhost:5000', 'http://127.0.0.1:5000', 'https://social-network1.onrender.com'],
+        methods: ['GET', 'POST'],
+        credentials: true
+    }
+}); // Инициализация Socket.IO
 
 
 // Настройка CORS
@@ -131,7 +139,7 @@ const MongoStore = require('connect-mongo');
 
 app.use(session({
     secret: 'your_jwt_secret',
-    store: MongoStore.create({ mongoUrl: 'mongodb+srv://mrborovry:Pins8hXZroPNQGVF@cluster0.vkuwm.mongodb.net/social-network?retryWrites=true&w=majority' }),
+    store: MongoStore.create({ mongoUrl: 'mongodb+srv://mrborovry:qazwsxedc1A1221123@cluster0.vkuwm.mongodb.net/social-network?retryWrites=true&w=majority' }),
     resave: false,
     saveUninitialized: false,
     cookie: {
@@ -259,7 +267,7 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 // Подключение к MongoDB
-mongoose.connect('mongodb+srv://mrborovry:Pins8hXZroPNQGVF@cluster0.vkuwm.mongodb.net/social-network?retryWrites=true&w=majority', {
+mongoose.connect('mongodb+srv://mrborovry:qazwsxedc1A1221123@cluster0.vkuwm.mongodb.net/social-network?retryWrites=true&w=majority', {
     
 })
 .then(() => console.log('MongoDB Atlas connected'))
@@ -1450,20 +1458,41 @@ async function parseYandexSearch(query) {
     return results;
 }
 
-// Обработка маршрута для поиска музыки
-app.get('/search', async (req, res) => {
-    const { query } = req.query;
+async function getSpotifyTopTracks() {
+    // You can replace this with real Spotify API calls if you have credentials
+    // For now, return mock data
+    return [
+        {
+            name: 'Song 1',
+            artists: [{ name: 'Artist 1' }],
+            preview_url: 'https://p.scdn.co/mp3-preview/example1.mp3'
+        },
+        {
+            name: 'Song 2',
+            artists: [{ name: 'Artist 2' }],
+            preview_url: 'https://p.scdn.co/mp3-preview/example2.mp3'
+        }
+    ];
+}
 
-    try {
-        const googleResults = await parseGoogleSearch(query);
-        const yandexResults = await parseYandexSearch(query);
-        
-        res.json({ googleResults, yandexResults });
-    } catch (error) {
-        console.error('Ошибка получения данных:', error.message);
-        res.status(500).send('Ошибка сервера');
-    }
-});
+async function getLastfmTopTracks(artist) {
+    // You can replace this with real Last.fm API calls if you have API key
+    // For now, return mock data
+    return [
+        { title: 'Lastfm Song 1', artist: artist },
+        { title: 'Lastfm Song 2', artist: artist }
+    ];
+}
+
+async function getYoutubeVideos(query) {
+    // You can replace this with real YouTube API calls if you have API key
+    // For now, return mock data
+    return [
+        { title: 'YouTube Video 1', url: 'https://www.youtube.com/watch?v=example1' },
+        { title: 'YouTube Video 2', url: 'https://www.youtube.com/watch?v=example2' }
+    ];
+}
+
 // Основной обработчик маршрута
 app.get('/music', async (req, res) => {
     try {
@@ -2279,3 +2308,5 @@ app.get('/api/notifications', (req, res) => {
 server.listen(PORT, () => {
     console.log(`Server running on port ${PORT}`);
 });
+
+app.use('/music', musicRoutes); // Use music routes

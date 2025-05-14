@@ -1,25 +1,33 @@
-// models/music.js
 const mongoose = require('mongoose');
 
 const musicSchema = new mongoose.Schema({
-    userId: {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: 'User', // Ссылка на модель User
-        required: true
-    },
     title: {
         type: String,
-        required: true
+        required: true,
     },
     artist: {
         type: String,
-        required: true
+        required: true,
+    },
+    album: {
+        type: String,
+        default: '',
+    },
+    audioUrl: {
+        type: String,
+        required: true,
+    },
+    userId: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'User',
+        required: true,
     },
     createdAt: {
         type: Date,
-        default: Date.now
-    }
+        default: Date.now,
+    },
 });
 
-const Music = mongoose.model('Music', musicSchema);
-module.exports = Music;
+const music = mongoose.model('music', musicSchema);
+
+module.exports = music;
